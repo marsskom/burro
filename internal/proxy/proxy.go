@@ -22,25 +22,13 @@ func New(pm *plugin.Manager) *Proxy {
 
 func (px *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := &events.Context{
-		Request:     r,
-		Response:    nil,
-		Metadata:    map[string]any{},
-		IsCancelled: false,
+		Request:   r,
+		Response:  nil,
+		Metadata:  map[string]any{},
+		IsHandled: false,
 	}
 
 	err := px.plugins.EmitConnect(ctx)
-	if err != nil {
-		px.plugins.EmitError(ctx)
-
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	req, err := http.NewRequest(
-		r.Method,
-		r.URL.String(),
-		r.Body,
-	)
 	if err != nil {
 		px.plugins.EmitError(ctx)
 
@@ -56,7 +44,24 @@ func (px *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req.Header = r.Header.Clone()
+	if ctx.IsHandled {
+		writeResponse(w, ctx.Response)
+		return
+	}
+
+	req, err := http.NewRequest(
+		ctx.Request.Method,
+		ctx.Request.URL.String(),
+		ctx.Request.Body,
+	)
+	if err != nil {
+		px.plugins.EmitError(ctx)
+
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	req.Header = ctx.Request.Header.Clone()
 
 	resp, err := px.client.Do(req)
 	if err != nil {
@@ -78,6 +83,10 @@ func (px *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	writeResponse(w, ctx.Response)
+}
+
+func writeResponse(w http.ResponseWriter, resp *http.Response) {
 	for k, v := range resp.Header {
 		for _, vv := range v {
 			w.Header().Add(k, vv)
@@ -85,6 +94,5 @@ func (px *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(resp.StatusCode)
-
 	io.Copy(w, resp.Body)
 }

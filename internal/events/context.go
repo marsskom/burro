@@ -8,5 +8,5 @@ type Context struct {
 
 	Metadata map[string]any
 
-	IsCancelled bool
+	IsHandled bool
 }

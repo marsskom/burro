@@ -1,3 +1,6 @@
+-include .env
+export
+
 PROXY=burro-proxy
 
 build:
@@ -7,7 +10,7 @@ run:
 	go run ./cmd/proxy
 
 docker-build:
-	docker build -t burro .
+	docker build -t $(PROJECT) .
 
 docker-run:
-	docker run --rm -p 8080:8080 burro
+	docker run --rm -p 8080:8080 $(PROJECT)
