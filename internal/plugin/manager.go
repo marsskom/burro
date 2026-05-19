@@ -1,9 +1,19 @@
 package plugin
 
-import "gitlab.com/marsskom/burro/internal/events"
+import (
+	"log/slog"
+	"sort"
+
+	"gitlab.com/marsskom/burro/internal/events"
+)
 
 type Manager struct {
-	plugins []Plugin
+	plugins []pluginMeta
+}
+
+type pluginMeta struct {
+	plugin   Plugin
+	priority int
 }
 
 func NewManager() *Manager {
@@ -11,12 +21,29 @@ func NewManager() *Manager {
 }
 
 func (m *Manager) Register(p Plugin) {
-	m.plugins = append(m.plugins, p)
+	slog.Debug("Register plugin", "plugin", p.Name())
+
+	plugin := pluginMeta{
+		plugin:   p,
+		priority: getPriority(p),
+	}
+
+	m.plugins = append(m.plugins, plugin)
+
+	m.sort()
+}
+
+func (m *Manager) sort() {
+	sort.Slice(m.plugins, func(i, j int) bool {
+		return m.plugins[i].priority < m.plugins[j].priority
+	})
 }
 
 func (m *Manager) EmitConnect(ctx *events.Context) error {
 	for _, p := range m.plugins {
-		if h, ok := p.(ConnectHook); ok {
+		slog.Debug("EmitConnect: try plugin", "name", p.plugin.Name())
+
+		if h, ok := p.plugin.(ConnectHook); ok {
 			err := h.OnConnect(ctx)
 			if err != nil {
 				return err
@@ -29,7 +56,9 @@ func (m *Manager) EmitConnect(ctx *events.Context) error {
 
 func (m *Manager) EmitRequest(ctx *events.Context) error {
 	for _, p := range m.plugins {
-		if h, ok := p.(RequestHook); ok {
+		slog.Debug("EmitRequest: try plugin", "name", p.plugin.Name())
+
+		if h, ok := p.plugin.(RequestHook); ok {
 			err := h.OnRequest(ctx)
 			if err != nil {
 				return err
@@ -42,7 +71,9 @@ func (m *Manager) EmitRequest(ctx *events.Context) error {
 
 func (m *Manager) EmitResponse(ctx *events.Context) error {
 	for _, p := range m.plugins {
-		if h, ok := p.(ResponseHook); ok {
+		slog.Debug("EmitResponse: try plugin", "name", p.plugin.Name())
+
+		if h, ok := p.plugin.(ResponseHook); ok {
 			err := h.OnResponse(ctx)
 			if err != nil {
 				return err
@@ -55,7 +86,9 @@ func (m *Manager) EmitResponse(ctx *events.Context) error {
 
 func (m *Manager) EmitError(ctx *events.Context) error {
 	for _, p := range m.plugins {
-		if h, ok := p.(ErrorHook); ok {
+		slog.Debug("EmitError: try plugin", "name", p.plugin.Name())
+
+		if h, ok := p.plugin.(ErrorHook); ok {
 			err := h.OnError(ctx)
 			if err != nil {
 				return err
@@ -68,7 +101,9 @@ func (m *Manager) EmitError(ctx *events.Context) error {
 
 func (m *Manager) EmitClose(ctx *events.Context) error {
 	for _, p := range m.plugins {
-		if h, ok := p.(CloseHook); ok {
+		slog.Debug("EmitClose: try plugin", "name", p.plugin.Name())
+
+		if h, ok := p.plugin.(CloseHook); ok {
 			err := h.OnClose(ctx)
 			if err != nil {
 				return err

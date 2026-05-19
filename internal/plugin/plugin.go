@@ -4,6 +4,7 @@ import "gitlab.com/marsskom/burro/internal/events"
 
 type Plugin interface {
 	Name() string
+	Init(cfg any) error
 }
 
 type ConnectHook interface {

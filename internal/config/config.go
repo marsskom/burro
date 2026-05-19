@@ -9,7 +9,7 @@ import (
 )
 
 type CoreConfig struct {
-	logLevel string `yaml:"log_level"`
+	LogLevel string `yaml:"log_level"`
 }
 
 type ProxyConfig struct {
@@ -18,8 +18,9 @@ type ProxyConfig struct {
 }
 
 type Config struct {
-	Core  CoreConfig  `yaml:"core"`
-	Proxy ProxyConfig `yaml:"proxy"`
+	Core    CoreConfig     `yaml:"core"`
+	Proxy   ProxyConfig    `yaml:"proxy"`
+	Plugins map[string]any `yaml:"plugins"`
 }
 
 func LoadWithFlags(configPath string, proxyFlags ProxyFlags) (*Config, error) {

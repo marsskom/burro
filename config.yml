@@ -4,3 +4,11 @@ core:
 proxy:
   port: 8080
   host: 0.0.0.0
+
+plugins:
+  logger:
+
+  policy:
+    priority: 10
+    whitelist: ./data/policy/whitelist.txt
+    blacklist: ./data/policy/blacklist.txt

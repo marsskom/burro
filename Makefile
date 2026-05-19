@@ -3,11 +3,14 @@ export
 
 PROXY=burro-proxy
 
+gen:
+	go generate ./tools/plugin-gen
+
 build:
 	go build -o bin/$(PROXY) ./cmd/proxy
 
 run:
-	go run ./cmd/proxy
+	go generate ./tools/plugin-gen && BURRO_CONFIG=config.yml && go run ./cmd/proxy
 
 docker-build:
 	docker build -t $(PROJECT) .

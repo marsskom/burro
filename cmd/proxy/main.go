@@ -4,13 +4,16 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/lukechampine/freeze"
 	"gitlab.com/marsskom/burro/internal/config"
+	coreLogger "gitlab.com/marsskom/burro/internal/logger"
 	"gitlab.com/marsskom/burro/internal/plugin"
 	"gitlab.com/marsskom/burro/internal/proxy"
-	"gitlab.com/marsskom/burro/plugins/logger"
+
+	_ "gitlab.com/marsskom/burro/plugins/registry"
 )
 
 func main() {
@@ -32,13 +35,19 @@ func main() {
 
 	cfg = freeze.Object(cfg).(*config.Config)
 
+	coreLogger.SetDefault(cfg.Core)
+
 	pm := plugin.NewManager()
 
-	pm.Register(logger.New())
+	err = plugin.LoadPlugins(cfg, pm)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	px := proxy.New(pm)
 
-	log.Printf("proxy listening on :%d\n", cfg.Proxy.Port)
+	slog.Info("Proxy is listening on host", "host", cfg.Proxy.Host)
+	slog.Info("Proxy is listening on port", "port", cfg.Proxy.Port)
 
 	err = http.ListenAndServe(
 		fmt.Sprintf("%s:%d", cfg.Proxy.Host, cfg.Proxy.Port),
