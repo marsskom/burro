@@ -3,8 +3,8 @@ package policy
 import (
 	"log/slog"
 
-	"gitlab.com/marsskom/burro/internal/events"
 	"gitlab.com/marsskom/burro/internal/plugin"
+	"gitlab.com/marsskom/burro/internal/request"
 	"gitlab.com/marsskom/burro/internal/response"
 )
 
@@ -69,7 +69,7 @@ func (p *PolicyPlugin) Init(cfg any) error {
 	return nil
 }
 
-func (p *PolicyPlugin) OnRequest(ctx *events.Context) error {
+func (p *PolicyPlugin) OnRequest(ctx *request.RequestContext) error {
 	if len(p.whitelist) > 0 && Match(ctx.Request.Host, p.whitelist) {
 		slog.Debug("Request host was found in whitelist", "host", ctx.Request.Host)
 
@@ -79,8 +79,7 @@ func (p *PolicyPlugin) OnRequest(ctx *events.Context) error {
 	if len(p.blacklist) > 0 && Match(ctx.Request.Host, p.blacklist) {
 		slog.Debug("Request host was found in blacklist", "host", ctx.Request.Host)
 
-		ctx.Response = response.Forbidden()
-		ctx.IsHandled = true
+		ctx.Finish(response.Forbidden())
 	}
 
 	return nil

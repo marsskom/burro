@@ -3,11 +3,12 @@ package proxy
 import (
 	"crypto/rsa"
 	"crypto/x509"
-	"io"
+	"net"
 	"net/http"
+	"time"
 
-	"gitlab.com/marsskom/burro/internal/events"
 	"gitlab.com/marsskom/burro/internal/plugin"
+	"gitlab.com/marsskom/burro/internal/request"
 )
 
 type Proxy struct {
@@ -25,7 +26,22 @@ func New(
 ) *Proxy {
 	return &Proxy{
 		plugins: pm,
-		client:  &http.Client{},
+		client: &http.Client{
+			Transport: &http.Transport{
+				DialContext: (&net.Dialer{
+					Timeout:   5 * time.Second,
+					KeepAlive: 30 * time.Second,
+				}).DialContext,
+
+				TLSHandshakeTimeout:   5 * time.Second,
+				ResponseHeaderTimeout: 15 * time.Second,
+				ExpectContinueTimeout: 1 * time.Second,
+
+				MaxIdleConns:        200,
+				MaxIdleConnsPerHost: 50,
+				IdleConnTimeout:     90 * time.Second,
+			},
+		},
 
 		caCert: caCert,
 		caKey:  caKey,
@@ -33,63 +49,35 @@ func New(
 }
 
 func (px *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := &events.Context{
-		Request:   r,
-		Response:  nil,
-		LastError: nil,
-		Metadata:  map[string]any{},
-		IsHandled: false,
-	}
+	ctx := request.New(r)
+
+	defer func() {
+		err := px.plugins.EmitClose(ctx)
+		if err != nil {
+			px.plugins.EmitError(ctx, err)
+		}
+
+		ctx.Cancel()
+	}()
+
+	ctx.Transition(request.StateReceived)
 
 	err := px.plugins.EmitConnect(ctx)
 	if err != nil {
-		ctx.LastError = err
-		px.plugins.EmitError(ctx)
+		ctx.Transition(request.StateFailed)
+		px.plugins.EmitError(ctx, err)
+
+		return
 	}
 
 	if r.Method == http.MethodConnect {
-		err = px.handleHTTPS(w, r)
-		if err != nil {
-			ctx.LastError = err
-			px.plugins.EmitError(ctx)
-		}
-
-		err := px.plugins.EmitClose(ctx)
-		if err != nil {
-			ctx.LastError = err
-			px.plugins.EmitError(ctx)
-		}
-
-		return
+		err = px.handleHTTPS(w, ctx)
+	} else {
+		err = px.handleHTTP(w, ctx)
 	}
 
-	response, err := px.handleRequest(ctx.Request)
 	if err != nil {
-		ctx.LastError = err
-		px.plugins.EmitError(ctx)
-
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-
-		return
+		ctx.Transition(request.StateFailed)
+		px.plugins.EmitError(ctx, err)
 	}
-	defer response.Body.Close()
-
-	writeResponse(w, response)
-
-	err = px.plugins.EmitClose(ctx)
-	if err != nil {
-		ctx.LastError = err
-		px.plugins.EmitError(ctx)
-	}
-}
-
-func writeResponse(w http.ResponseWriter, resp *http.Response) {
-	for k, v := range resp.Header {
-		for _, vv := range v {
-			w.Header().Add(k, vv)
-		}
-	}
-
-	w.WriteHeader(resp.StatusCode)
-	io.Copy(w, resp.Body)
 }

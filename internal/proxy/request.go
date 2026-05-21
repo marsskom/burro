@@ -3,50 +3,62 @@ package proxy
 import (
 	"net/http"
 
-	"gitlab.com/marsskom/burro/internal/events"
+	"gitlab.com/marsskom/burro/internal/request"
 )
 
-func (px *Proxy) handleRequest(r *http.Request) (*http.Response, error) {
-	ctx := &events.Context{
-		Request:   r,
-		Response:  nil,
-		Metadata:  map[string]any{},
-		IsHandled: false,
+func (px *Proxy) handleHTTP(w http.ResponseWriter, ctx *request.RequestContext) error {
+	ctx.Transition(request.StatePrepared)
+	ctx.Transition(request.StateForwarding)
+
+	err := px.handleRequest(ctx, ctx.Request)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+
+		return err
 	}
 
+	ctx.Transition(request.StateResponding)
+
+	writeResponse(w, ctx.Response)
+
+	ctx.Transition(request.StateFinished)
+
+	return nil
+}
+
+func (px *Proxy) handleRequest(ctx *request.RequestContext, r *http.Request) error {
 	err := px.plugins.EmitRequest(ctx)
 	if err != nil {
-		px.plugins.EmitError(ctx)
-
-		return nil, err
+		return err
 	}
 
-	if ctx.IsHandled {
-		return ctx.Response, nil
+	if ctx.IsFinished {
+		return nil
 	}
 
 	req, err := http.NewRequest(
-		ctx.Request.Method,
-		ctx.Request.URL.String(),
-		ctx.Request.Body,
+		r.Method,
+		r.URL.String(),
+		r.Body,
 	)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	req.Header = ctx.Request.Header.Clone()
+	req = req.WithContext(ctx.Context)
+	req.Header = r.Header.Clone()
 
 	resp, err := px.client.Do(req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	ctx.Response = resp
 
 	err = px.plugins.EmitResponse(ctx)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return ctx.Response, nil
+	return nil
 }
