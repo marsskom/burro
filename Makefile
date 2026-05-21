@@ -1,19 +1,76 @@
 -include .env
 export
 
+CA_CERT=certs/ca.pem
+CA_NAME=Burro CA
+KEYCHAIN=/Library/Keychains/System.keychain
+
 PROXY=burro-proxy
 
+.PHONY: certs
+certs:
+	go run ./cmd/certgen 
+
+
+.PHONY: ca-install
+ca-install:
+	@echo "Installing CA into macOS System Keychain..."
+	@sudo security add-trusted-cert \
+		-d \
+		-r trustRoot \
+		-k $(KEYCHAIN) \
+		$(CA_CERT)
+	@echo "Done. CA installed."
+
+.PHONY: ca-remove
+ca-remove:
+	@echo "Removing CA from System Keychain..."
+	@sudo security delete-certificate \
+		-c "$(CA_NAME)" \
+		$(KEYCHAIN) || true
+	@echo "Done. CA removed."
+
+.PHONY: ca-find
+ca-find:
+	@echo "Searching CA in System Keychain..."
+	@security find-certificate -c "$(CA_NAME)" $(KEYCHAIN) || true
+
+
+.PHONY: gen
 gen:
 	go generate ./tools/plugin-gen
 
+.PHONY: build
 build:
 	go build -o bin/$(PROXY) ./cmd/proxy
 
+.PHONY: run
 run:
-	go generate ./tools/plugin-gen && BURRO_CONFIG=config.yml && go run ./cmd/proxy
+	$(MAKE) gen
+	BURRO_CONFIG=config.yml && go run ./cmd/proxy
 
+.PHONY: browser
+browser:
+	chromium \
+		--proxy-server="http://localhost:8080" \
+		--user-data-dir=/tmp/burro \
+		--no-first-run \
+		--no-default-browser-check \
+		--disable-background-networking \
+		--disable-sync \
+		--disable-translate \
+		--disable-component-update \
+		--disable-client-side-phishing-detection \
+		--disable-domain-reliability \
+		--disable-features=HeavyAdIntervention,PrivacySandboxSettings3,IsolateOrigins,site-per-process \
+		--metrics-recording-only \
+		--safebrowsing-disable-auto-update \
+		--safebrowsing-disable-download-protection
+
+.PHONY: docker-build
 docker-build:
 	docker build -t $(PROJECT) .
 
+.PHONY: docker-run
 docker-run:
 	docker run --rm -p 8080:8080 $(PROJECT)
