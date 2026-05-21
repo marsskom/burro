@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"sort"
 
-	"gitlab.com/marsskom/burro/internal/events"
+	"gitlab.com/marsskom/burro/internal/request"
 )
 
 type Manager struct {
@@ -39,7 +39,7 @@ func (m *Manager) sort() {
 	})
 }
 
-func (m *Manager) EmitConnect(ctx *events.Context) error {
+func (m *Manager) EmitConnect(ctx *request.RequestContext) error {
 	for _, p := range m.plugins {
 		slog.Debug("EmitConnect: try plugin", "name", p.plugin.Name())
 
@@ -54,7 +54,7 @@ func (m *Manager) EmitConnect(ctx *events.Context) error {
 	return nil
 }
 
-func (m *Manager) EmitRequest(ctx *events.Context) error {
+func (m *Manager) EmitRequest(ctx *request.RequestContext) error {
 	for _, p := range m.plugins {
 		slog.Debug("EmitRequest: try plugin", "name", p.plugin.Name())
 
@@ -69,7 +69,7 @@ func (m *Manager) EmitRequest(ctx *events.Context) error {
 	return nil
 }
 
-func (m *Manager) EmitResponse(ctx *events.Context) error {
+func (m *Manager) EmitResponse(ctx *request.RequestContext) error {
 	for _, p := range m.plugins {
 		slog.Debug("EmitResponse: try plugin", "name", p.plugin.Name())
 
@@ -84,12 +84,12 @@ func (m *Manager) EmitResponse(ctx *events.Context) error {
 	return nil
 }
 
-func (m *Manager) EmitError(ctx *events.Context) error {
+func (m *Manager) EmitError(ctx *request.RequestContext, err error) error {
 	for _, p := range m.plugins {
 		slog.Debug("EmitError: try plugin", "name", p.plugin.Name())
 
 		if h, ok := p.plugin.(ErrorHook); ok {
-			err := h.OnError(ctx)
+			err := h.OnError(ctx, err)
 			if err != nil {
 				return err
 			}
@@ -99,7 +99,7 @@ func (m *Manager) EmitError(ctx *events.Context) error {
 	return nil
 }
 
-func (m *Manager) EmitClose(ctx *events.Context) error {
+func (m *Manager) EmitClose(ctx *request.RequestContext) error {
 	for _, p := range m.plugins {
 		slog.Debug("EmitClose: try plugin", "name", p.plugin.Name())
 

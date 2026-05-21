@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"gitlab.com/marsskom/burro/internal/events"
 	"gitlab.com/marsskom/burro/internal/plugin"
+	"gitlab.com/marsskom/burro/internal/request"
 )
 
 func init() {
@@ -33,67 +33,59 @@ func (p *LoggerPlugin) Init(cfg any) error {
 	return nil
 }
 
-func (p *LoggerPlugin) OnConnect(ctx *events.Context) error {
+func (p *LoggerPlugin) OnConnect(ctx *request.RequestContext) error {
 	print(slog.LevelDebug, "Trying to connect", ctx)
 
 	return nil
 }
 
-func (p *LoggerPlugin) OnRequest(ctx *events.Context) error {
+func (p *LoggerPlugin) OnRequest(ctx *request.RequestContext) error {
 	print(slog.LevelInfo, "Request received", ctx)
 
 	return nil
 }
 
-func (p *LoggerPlugin) OnResponse(ctx *events.Context) error {
+func (p *LoggerPlugin) OnResponse(ctx *request.RequestContext) error {
 	print(slog.LevelInfo, "Response received", ctx)
 
 	return nil
 }
 
-func (p *LoggerPlugin) OnError(ctx *events.Context) error {
-	print(slog.LevelError, "Error occurred", ctx)
+func (p *LoggerPlugin) OnError(ctx *request.RequestContext, err error) error {
+	print(slog.LevelError, fmt.Sprintf("Error occurred: %v", err), ctx)
 
 	return nil
 }
 
-func (p *LoggerPlugin) OnClose(ctx *events.Context) error {
+func (p *LoggerPlugin) OnClose(ctx *request.RequestContext) error {
 	print(slog.LevelDebug, "Connection closed", ctx)
 
 	return nil
 }
 
-func print(level slog.Level, msg string, ctx *events.Context) {
-	slog.Log(context.Background(), level, msg)
-
-	if ctx.LastError != nil {
-		slog.Log(context.Background(), level,
-			fmt.Sprintf(
-				"Error: %v\n",
-				ctx.LastError,
-			),
-		)
+func print(level slog.Level, msg string, ctx *request.RequestContext) {
+	args := []any{
+		"ID", ctx.ID,
+		"StartTime", ctx.StartTime,
+		"State", ctx.State.Load(),
+		"Metadata", ctx.Metadata,
 	}
 
 	if ctx.Request != nil {
-		slog.Log(context.Background(), level,
-			fmt.Sprintf(
-				"Request data: [%s] %s %s\n",
-				ctx.Request.Method,
-				ctx.Request.URL.String(),
-				ctx.Request.Proto,
-			),
+		args = append(args,
+			"Request Method", ctx.Request.Method,
+			"Request URL", ctx.Request.URL.String(),
+			"Request Proto", ctx.Request.Proto,
 		)
 	}
 
 	if ctx.Response != nil {
-		slog.Log(context.Background(), level,
-			fmt.Sprintf(
-				"Response data: [%s] %d %s\n",
-				ctx.Response.Status,
-				ctx.Response.StatusCode,
-				ctx.Response.Proto,
-			),
+		args = append(args,
+			"Response Status", ctx.Response.Status,
+			"Response StatusCode", ctx.Response.StatusCode,
+			"Response Proto", ctx.Response.Proto,
 		)
 	}
+
+	slog.Log(context.Background(), level, msg, args...)
 }

@@ -1,6 +1,6 @@
 package plugin
 
-import "gitlab.com/marsskom/burro/internal/events"
+import "gitlab.com/marsskom/burro/internal/request"
 
 type Plugin interface {
 	Name() string
@@ -8,21 +8,21 @@ type Plugin interface {
 }
 
 type ConnectHook interface {
-	OnConnect(ctx *events.Context) error
+	OnConnect(ctx *request.RequestContext) error
 }
 
 type RequestHook interface {
-	OnRequest(ctx *events.Context) error
+	OnRequest(ctx *request.RequestContext) error
 }
 
 type ResponseHook interface {
-	OnResponse(ctx *events.Context) error
+	OnResponse(ctx *request.RequestContext) error
 }
 
 type ErrorHook interface {
-	OnError(ctx *events.Context) error
+	OnError(ctx *request.RequestContext, err error) error
 }
 
 type CloseHook interface {
-	OnClose(ctx *events.Context) error
+	OnClose(ctx *request.RequestContext) error
 }
