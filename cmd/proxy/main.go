@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/lukechampine/freeze"
+	"gitlab.com/marsskom/burro/internal/cert"
 	"gitlab.com/marsskom/burro/internal/config"
 	coreLogger "gitlab.com/marsskom/burro/internal/logger"
 	"gitlab.com/marsskom/burro/internal/plugin"
@@ -17,6 +17,7 @@ import (
 )
 
 func main() {
+	// Flags and Config.
 	var flags config.ProxyFlags
 
 	flag.IntVar(&flags.Port, "port", 0, "proxy port override")
@@ -33,10 +34,19 @@ func main() {
 		log.Fatal(err)
 	}
 
-	cfg = freeze.Object(cfg).(*config.Config)
-
+	// Logger.
 	coreLogger.SetDefault(cfg.Core)
 
+	// Certificates.
+	caCert, caKey, err := cert.LoadCA(
+		"./certs/ca.pem",
+		"./certs/ca.key",
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Plugins.
 	pm := plugin.NewManager()
 
 	err = plugin.LoadPlugins(cfg, pm)
@@ -44,7 +54,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	px := proxy.New(pm)
+	// Proxy.
+	px := proxy.New(pm, caCert, caKey)
 
 	slog.Info("Proxy is listening on host", "host", cfg.Proxy.Host)
 	slog.Info("Proxy is listening on port", "port", cfg.Proxy.Port)

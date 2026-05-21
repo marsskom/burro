@@ -34,7 +34,7 @@ func (p *LoggerPlugin) Init(cfg any) error {
 }
 
 func (p *LoggerPlugin) OnConnect(ctx *events.Context) error {
-	print(slog.LevelDebug, "Connected", ctx)
+	print(slog.LevelDebug, "Trying to connect", ctx)
 
 	return nil
 }
@@ -65,6 +65,15 @@ func (p *LoggerPlugin) OnClose(ctx *events.Context) error {
 
 func print(level slog.Level, msg string, ctx *events.Context) {
 	slog.Log(context.Background(), level, msg)
+
+	if ctx.LastError != nil {
+		slog.Log(context.Background(), level,
+			fmt.Sprintf(
+				"Error: %v\n",
+				ctx.LastError,
+			),
+		)
+	}
 
 	if ctx.Request != nil {
 		slog.Log(context.Background(), level,
