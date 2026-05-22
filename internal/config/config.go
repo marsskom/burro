@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -26,7 +27,7 @@ type Config struct {
 func LoadWithFlags(configPath string, proxyFlags ProxyFlags) (*Config, error) {
 	cfg, err := Load(configPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Config: cannot load config: %w", err)
 	}
 
 	cfg.Proxy = MergeProxy(cfg.Proxy, proxyFlags)
@@ -37,12 +38,12 @@ func LoadWithFlags(configPath string, proxyFlags ProxyFlags) (*Config, error) {
 func Load(configPath string) (*Config, error) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Config: caanot read config file: %w", err)
 	}
 
 	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Config: cannot unmarshall config file: %w", err)
 	}
 
 	return &cfg, nil

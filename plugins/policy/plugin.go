@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"fmt"
 	"log/slog"
 
 	"gitlab.com/marsskom/burro/internal/plugin"
@@ -43,7 +44,7 @@ func (p *PolicyPlugin) Init(cfg any) error {
 
 	var config PolicyConfig
 	if err := plugin.DecodeYAML(cfg, &config); err != nil {
-		return err
+		return fmt.Errorf("Policy Plugin Init: cannot read plugin config: %w", err)
 	}
 
 	p.priority = config.Priority
@@ -51,7 +52,7 @@ func (p *PolicyPlugin) Init(cfg any) error {
 	if config.Whitelist != "" {
 		whitelist, err := LoadDomains(config.Whitelist)
 		if err != nil {
-			return err
+			return fmt.Errorf("Policy Plugin Init: cannot load whitelist: %w", err)
 		}
 
 		p.whitelist = whitelist
@@ -60,7 +61,7 @@ func (p *PolicyPlugin) Init(cfg any) error {
 	if config.Blacklist != "" {
 		blacklist, err := LoadDomains(config.Blacklist)
 		if err != nil {
-			return err
+			return fmt.Errorf("Policy Plugin Init: cannot load blacklist: %w", err)
 		}
 
 		p.blacklist = blacklist

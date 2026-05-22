@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"math/big"
 	"time"
 )
@@ -18,7 +19,7 @@ func GenerateHostCertificate(
 ) (*tls.Certificate, error) {
 	private, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("HostCA: error generate key: %w", err)
 	}
 
 	tpl := x509.Certificate{
@@ -43,7 +44,7 @@ func GenerateHostCertificate(
 		caKey,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("HostCA: error create certificate: %w", err)
 	}
 
 	certPEM := pem.EncodeToMemory(&pem.Block{
@@ -58,8 +59,8 @@ func GenerateHostCertificate(
 
 	certificate, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("HostCA: error parse x509 key pair: %w", err)
 	}
 
-	return &certificate, err
+	return &certificate, nil
 }

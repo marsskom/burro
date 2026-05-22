@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"math/big"
 	"os"
 	"time"
@@ -18,7 +19,7 @@ func GenerateCA(certPath, keyPath string) error {
 
 	private, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		return err
+		return fmt.Errorf("GenerateCA: error on key generation: %w", err)
 	}
 
 	tpl := x509.Certificate{
@@ -41,12 +42,12 @@ func GenerateCA(certPath, keyPath string) error {
 		private,
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("GenerateCA: error on certificate generation: %w", err)
 	}
 
 	certificate, err := os.Create(certPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("GenerateCA: error to create certificate file: %w", err)
 	}
 
 	pem.Encode(certificate, &pem.Block{
@@ -56,12 +57,12 @@ func GenerateCA(certPath, keyPath string) error {
 
 	err = certificate.Close()
 	if err != nil {
-		return err
+		return fmt.Errorf("GenerateCA: error to close certificate file: %w", err)
 	}
 
 	key, err := os.Create(keyPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("GenerateCA: error to create key file: %w", err)
 	}
 
 	pem.Encode(key, &pem.Block{
@@ -69,18 +70,23 @@ func GenerateCA(certPath, keyPath string) error {
 		Bytes: x509.MarshalPKCS1PrivateKey(private),
 	})
 
-	return key.Close()
+	err = key.Close()
+	if err != nil {
+		return fmt.Errorf("GenerateCA: error to close key file: %w", err)
+	}
+
+	return nil
 }
 
 func LoadCA(certPath, keyPath string) (*x509.Certificate, *rsa.PrivateKey, error) {
 	certPEM, err := os.ReadFile(certPath)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("LoadCA: error read certificate file: %w", err)
 	}
 
 	keyPEM, err := os.ReadFile(keyPath)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("LoadCA: error read key file: %w", err)
 	}
 
 	certBlock, _ := pem.Decode(certPEM)
@@ -88,12 +94,12 @@ func LoadCA(certPath, keyPath string) (*x509.Certificate, *rsa.PrivateKey, error
 
 	caCert, err := x509.ParseCertificate(certBlock.Bytes)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("LoadCA: error parse certificate: %w", err)
 	}
 
 	caKey, err := x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("LoadCA: error parse key: %w", err)
 	}
 
 	return caCert, caKey, nil

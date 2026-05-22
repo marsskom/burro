@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"fmt"
 	"log/slog"
 	"sort"
 
@@ -46,7 +47,7 @@ func (m *Manager) EmitConnect(ctx *request.RequestContext) error {
 		if h, ok := p.plugin.(ConnectHook); ok {
 			err := h.OnConnect(ctx)
 			if err != nil {
-				return err
+				return fmt.Errorf("Plugin Manager: error on Connect hook: %w", err)
 			}
 		}
 	}
@@ -61,7 +62,7 @@ func (m *Manager) EmitRequest(ctx *request.RequestContext) error {
 		if h, ok := p.plugin.(RequestHook); ok {
 			err := h.OnRequest(ctx)
 			if err != nil {
-				return err
+				return fmt.Errorf("Plugin Manager: error on Request hook: %w", err)
 			}
 		}
 	}
@@ -76,7 +77,7 @@ func (m *Manager) EmitResponse(ctx *request.RequestContext) error {
 		if h, ok := p.plugin.(ResponseHook); ok {
 			err := h.OnResponse(ctx)
 			if err != nil {
-				return err
+				return fmt.Errorf("Plugin Manager: error on Response hook: %w", err)
 			}
 		}
 	}
@@ -91,7 +92,7 @@ func (m *Manager) EmitError(ctx *request.RequestContext, err error) error {
 		if h, ok := p.plugin.(ErrorHook); ok {
 			err := h.OnError(ctx, err)
 			if err != nil {
-				return err
+				return fmt.Errorf("Plugin Manager: error on Error hook: %w", err)
 			}
 		}
 	}
@@ -106,7 +107,7 @@ func (m *Manager) EmitClose(ctx *request.RequestContext) error {
 		if h, ok := p.plugin.(CloseHook); ok {
 			err := h.OnClose(ctx)
 			if err != nil {
-				return err
+				return fmt.Errorf("Plugin Manager: error on Close hook: %w", err)
 			}
 		}
 	}

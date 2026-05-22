@@ -3,6 +3,7 @@ package proxy
 import (
 	"crypto/rsa"
 	"crypto/x509"
+	"fmt"
 	"net"
 	"net/http"
 	"time"
@@ -54,7 +55,7 @@ func (px *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		err := px.plugins.EmitClose(ctx)
 		if err != nil {
-			px.plugins.EmitError(ctx, err)
+			px.plugins.EmitError(ctx, fmt.Errorf("ServeHTTP: error on EmitClose: %w", err))
 		}
 
 		ctx.Cancel()
@@ -65,7 +66,7 @@ func (px *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	err := px.plugins.EmitConnect(ctx)
 	if err != nil {
 		ctx.Transition(request.StateFailed)
-		px.plugins.EmitError(ctx, err)
+		px.plugins.EmitError(ctx, fmt.Errorf("ServeHTTP: error on EmitConnect: %w", err))
 
 		return
 	}
@@ -78,6 +79,6 @@ func (px *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		ctx.Transition(request.StateFailed)
-		px.plugins.EmitError(ctx, err)
+		px.plugins.EmitError(ctx, fmt.Errorf("ServeHTTP: error on handle request: %w", err))
 	}
 }

@@ -3,6 +3,7 @@ package proxy
 import (
 	"bufio"
 	"crypto/tls"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -17,7 +18,7 @@ func (px *Proxy) handleHTTPS(w http.ResponseWriter, ctx *request.RequestContext)
 
 	clientConn, _, err := hijacker.Hijack()
 	if err != nil {
-		return err
+		return fmt.Errorf("handleHTTPS: cannot hijack connection: %w", err)
 	}
 	defer clientConn.Close()
 
@@ -33,12 +34,12 @@ func (px *Proxy) handleHTTPS(w http.ResponseWriter, ctx *request.RequestContext)
 		"HTTP/1.1 200 Connection Established\r\n\r\n",
 	))
 	if err != nil {
-		return err
+		return fmt.Errorf("handleHTTPS: cannot send 200 message to connection: %w", err)
 	}
 
 	err = ctx.Transition(request.StatePrepared)
 	if err != nil {
-		return err
+		return fmt.Errorf("handleHTTPS: cannot transit context to prepared state: %w", err)
 	}
 
 	host := ctx.Request.Host
@@ -48,7 +49,7 @@ func (px *Proxy) handleHTTPS(w http.ResponseWriter, ctx *request.RequestContext)
 
 	fakeCert, err := cert.GenerateHostCertificate(host, px.caCert, px.caKey)
 	if err != nil {
-		return err
+		return fmt.Errorf("handleHTTPS: cannot generate host certificate: %w", err)
 	}
 
 	tlsConn := tls.Server(clientConn, &tls.Config{
@@ -64,12 +65,12 @@ func (px *Proxy) handleHTTPS(w http.ResponseWriter, ctx *request.RequestContext)
 	select {
 	case err := <-handshakeDone:
 		if err != nil {
-			return err
+			return fmt.Errorf("handleHTTPS: error during handshake: %w", err)
 		}
 	case <-ctx.Context.Done():
 		err := ctx.Transition(request.StateCanceled)
 		if err != nil {
-			return err
+			return fmt.Errorf("handleHTTPS: cannot transit context to canceled state: %w", err)
 		}
 
 		return ctx.Context.Err()
@@ -81,7 +82,7 @@ func (px *Proxy) handleHTTPS(w http.ResponseWriter, ctx *request.RequestContext)
 	case <-ctx.Context.Done():
 		err := ctx.Transition(request.StateCanceled)
 		if err != nil {
-			return err
+			return fmt.Errorf("handleHTTPS: cannot transit context to canceled state: %w", err)
 		}
 
 		return ctx.Context.Err()
@@ -99,7 +100,7 @@ func (px *Proxy) handleHTTPS(w http.ResponseWriter, ctx *request.RequestContext)
 				return nil
 			}
 
-			return err
+			return fmt.Errorf("handleHTTPS: problem to read request: %w", err)
 		}
 
 		if req.Close {
@@ -107,26 +108,36 @@ func (px *Proxy) handleHTTPS(w http.ResponseWriter, ctx *request.RequestContext)
 		}
 
 		newCtx := request.NewFromParent(ctx, req)
+		err = newCtx.Transition(request.StatePrepared)
+		if err != nil {
+			return fmt.Errorf("handleHTTPS: cannot transit new context to prepared state: %w", err)
+		}
 
 		req = req.WithContext(newCtx.Context)
 		req.URL.Scheme = "https"
 		req.URL.Host = newCtx.Request.Host
 		req.RequestURI = ""
 
-		newCtx.Transition(request.StateForwarding)
+		err = newCtx.Transition(request.StateForwarding)
+		if err != nil {
+			return fmt.Errorf("handleHTTPS: cannot transit new context to forwarding state: %w", err)
+		}
 
 		err = px.handleRequest(newCtx, req)
 		if err != nil {
-			return err
+			return fmt.Errorf("handleHTTPS: error on handle request: %w", err)
 		}
 
 		newCtx.Transition(request.StateResponding)
+		if err != nil {
+			return fmt.Errorf("handleHTTPS: cannot transit new context to responding state: %w", err)
+		}
 
 		tlsConn.SetWriteDeadline(ioDeadline)
 
 		err = newCtx.Response.Write(tlsConn)
 		if err != nil {
-			return err
+			return fmt.Errorf("handleHTTPS: cannot write response: %w", err)
 		}
 
 		tlsConn.SetWriteDeadline(time.Time{})
@@ -135,6 +146,9 @@ func (px *Proxy) handleHTTPS(w http.ResponseWriter, ctx *request.RequestContext)
 			newCtx.Response.Body.Close()
 		}
 
-		newCtx.Transition(request.StateFinished)
+		err = newCtx.Transition(request.StateFinished)
+		if err != nil {
+			return fmt.Errorf("handleHTTPS: cannot transit new context to finished state: %w", err)
+		}
 	}
 }
