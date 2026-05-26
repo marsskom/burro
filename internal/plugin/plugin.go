@@ -1,6 +1,6 @@
 package plugin
 
-import "gitlab.com/marsskom/burro/internal/request"
+import "gitlab.com/marsskom/burro/internal/model"
 
 type Plugin interface {
 	Name() string
@@ -8,21 +8,21 @@ type Plugin interface {
 }
 
 type ConnectHook interface {
-	OnConnect(ctx *request.RequestContext) error
+	OnConnect(ctx *model.RequestContext) error
 }
 
 type RequestHook interface {
-	OnRequest(ctx *request.RequestContext) error
+	OnRequest(ctx *model.RequestContext) error
 }
 
 type ResponseHook interface {
-	OnResponse(ctx *request.RequestContext) error
+	OnResponse(ctx *model.RequestContext) error
 }
 
 type ErrorHook interface {
-	OnError(ctx *request.RequestContext, err error) error
+	OnError(ctx *model.RequestContext, err error) error
 }
 
 type CloseHook interface {
-	OnClose(ctx *request.RequestContext) error
+	OnClose(ctx *model.RequestContext) error
 }

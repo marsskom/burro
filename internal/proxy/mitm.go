@@ -2,18 +2,22 @@ package proxy
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"time"
 
 	"gitlab.com/marsskom/burro/internal/cert"
-	"gitlab.com/marsskom/burro/internal/request"
+	"gitlab.com/marsskom/burro/internal/model"
 )
 
-func (px *Proxy) handleHTTPS(w http.ResponseWriter, ctx *request.RequestContext) error {
+// TODO: optimize.
+func (px *Proxy) handleHTTPS(w http.ResponseWriter, ctx *model.RequestContext) error {
 	hijacker := w.(http.Hijacker)
 
 	clientConn, _, err := hijacker.Hijack()
@@ -37,10 +41,22 @@ func (px *Proxy) handleHTTPS(w http.ResponseWriter, ctx *request.RequestContext)
 		return fmt.Errorf("handleHTTPS: cannot send 200 message to connection: %w", err)
 	}
 
-	err = ctx.Transition(request.StatePrepared)
+	err = ctx.Transition(model.StatePrepared)
 	if err != nil {
 		return fmt.Errorf("handleHTTPS: cannot transit context to prepared state: %w", err)
 	}
+
+	body, err := io.ReadAll(ctx.Request.Body)
+	if err != nil {
+		return fmt.Errorf("HandleHTTP: error on read request body: %w", err)
+	}
+
+	ctx.Request.Body.Close()
+
+	ctx.RequestBody = body
+
+	// Restore request body for next request.
+	ctx.Request.Body = io.NopCloser(bytes.NewReader(body))
 
 	host := ctx.Request.Host
 	if strings.Contains(host, ":") {
@@ -57,6 +73,8 @@ func (px *Proxy) handleHTTPS(w http.ResponseWriter, ctx *request.RequestContext)
 	})
 	defer tlsConn.Close()
 
+	tlsConn.SetReadDeadline(ioDeadline)
+
 	handshakeDone := make(chan error, 1)
 	go func() {
 		handshakeDone <- tlsConn.Handshake()
@@ -68,7 +86,7 @@ func (px *Proxy) handleHTTPS(w http.ResponseWriter, ctx *request.RequestContext)
 			return fmt.Errorf("handleHTTPS: error during handshake: %w", err)
 		}
 	case <-ctx.Context.Done():
-		err := ctx.Transition(request.StateCanceled)
+		err := ctx.Transition(model.StateCanceled)
 		if err != nil {
 			return fmt.Errorf("handleHTTPS: cannot transit context to canceled state: %w", err)
 		}
@@ -80,7 +98,7 @@ func (px *Proxy) handleHTTPS(w http.ResponseWriter, ctx *request.RequestContext)
 
 	select {
 	case <-ctx.Context.Done():
-		err := ctx.Transition(request.StateCanceled)
+		err := ctx.Transition(model.StateCanceled)
 		if err != nil {
 			return fmt.Errorf("handleHTTPS: cannot transit context to canceled state: %w", err)
 		}
@@ -92,33 +110,56 @@ func (px *Proxy) handleHTTPS(w http.ResponseWriter, ctx *request.RequestContext)
 	reader := bufio.NewReader(tlsConn)
 
 	for {
-		tlsConn.SetReadDeadline(ioDeadline)
+		// Set deadline for each request separately.
+		tlsConn.SetReadDeadline(time.Now().Add(60 * time.Second))
 
 		req, err := http.ReadRequest(reader)
 		if err != nil {
-			if err == io.EOF {
-				return nil
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				continue
 			}
 
 			return fmt.Errorf("handleHTTPS: problem to read request: %w", err)
 		}
 
-		if req.Close {
-			return nil
+		if req == nil {
+			continue
 		}
 
-		newCtx := request.NewFromParent(ctx, req)
-		err = newCtx.Transition(request.StatePrepared)
+		if req.Close {
+			break
+		}
+
+		newCtx := model.NewCtxFromParent(ctx, req)
+		px.session.AddRequest(newCtx)
+
+		err = newCtx.Transition(model.StatePrepared)
 		if err != nil {
 			return fmt.Errorf("handleHTTPS: cannot transit new context to prepared state: %w", err)
 		}
 
+		body, err := io.ReadAll(newCtx.Request.Body)
+		if err != nil {
+			return fmt.Errorf("HandleHTTP: error on read request body: %w", err)
+		}
+
+		newCtx.Request.Body.Close()
+
+		newCtx.RequestBody = body
+
+		// Restore request body for next request.
+		newCtx.Request.Body = io.NopCloser(bytes.NewReader(body))
+
 		req = req.WithContext(newCtx.Context)
 		req.URL.Scheme = "https"
 		req.URL.Host = newCtx.Request.Host
+		req.Host = newCtx.Request.Host
 		req.RequestURI = ""
 
-		err = newCtx.Transition(request.StateForwarding)
+		err = newCtx.Transition(model.StateForwarding)
 		if err != nil {
 			return fmt.Errorf("handleHTTPS: cannot transit new context to forwarding state: %w", err)
 		}
@@ -128,12 +169,12 @@ func (px *Proxy) handleHTTPS(w http.ResponseWriter, ctx *request.RequestContext)
 			return fmt.Errorf("handleHTTPS: error on handle request: %w", err)
 		}
 
-		newCtx.Transition(request.StateResponding)
+		newCtx.Transition(model.StateResponding)
 		if err != nil {
 			return fmt.Errorf("handleHTTPS: cannot transit new context to responding state: %w", err)
 		}
 
-		tlsConn.SetWriteDeadline(ioDeadline)
+		tlsConn.SetWriteDeadline(time.Now().Add(60 * time.Second))
 
 		err = newCtx.Response.Write(tlsConn)
 		if err != nil {
@@ -146,9 +187,11 @@ func (px *Proxy) handleHTTPS(w http.ResponseWriter, ctx *request.RequestContext)
 			newCtx.Response.Body.Close()
 		}
 
-		err = newCtx.Transition(request.StateFinished)
+		err = newCtx.Transition(model.StateFinished)
 		if err != nil {
 			return fmt.Errorf("handleHTTPS: cannot transit new context to finished state: %w", err)
 		}
 	}
+
+	return nil
 }

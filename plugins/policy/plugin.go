@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log/slog"
 
+	"gitlab.com/marsskom/burro/internal/model"
 	"gitlab.com/marsskom/burro/internal/plugin"
-	"gitlab.com/marsskom/burro/internal/request"
 	"gitlab.com/marsskom/burro/internal/response"
 )
 
@@ -70,7 +70,7 @@ func (p *PolicyPlugin) Init(cfg any) error {
 	return nil
 }
 
-func (p *PolicyPlugin) OnRequest(ctx *request.RequestContext) error {
+func (p *PolicyPlugin) OnRequest(ctx *model.RequestContext) error {
 	if len(p.whitelist) > 0 && Match(ctx.Request.Host, p.whitelist) {
 		slog.Debug("Request host was found in whitelist", "host", ctx.Request.Host)
 
