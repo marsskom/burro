@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"sort"
 
-	"gitlab.com/marsskom/burro/internal/request"
+	"gitlab.com/marsskom/burro/internal/model"
 )
 
 type Manager struct {
@@ -40,7 +40,7 @@ func (m *Manager) sort() {
 	})
 }
 
-func (m *Manager) EmitConnect(ctx *request.RequestContext) error {
+func (m *Manager) EmitConnect(ctx *model.RequestContext) error {
 	for _, p := range m.plugins {
 		slog.Debug("EmitConnect: try plugin", "name", p.plugin.Name())
 
@@ -55,7 +55,7 @@ func (m *Manager) EmitConnect(ctx *request.RequestContext) error {
 	return nil
 }
 
-func (m *Manager) EmitRequest(ctx *request.RequestContext) error {
+func (m *Manager) EmitRequest(ctx *model.RequestContext) error {
 	for _, p := range m.plugins {
 		slog.Debug("EmitRequest: try plugin", "name", p.plugin.Name())
 
@@ -70,7 +70,7 @@ func (m *Manager) EmitRequest(ctx *request.RequestContext) error {
 	return nil
 }
 
-func (m *Manager) EmitResponse(ctx *request.RequestContext) error {
+func (m *Manager) EmitResponse(ctx *model.RequestContext) error {
 	for _, p := range m.plugins {
 		slog.Debug("EmitResponse: try plugin", "name", p.plugin.Name())
 
@@ -85,7 +85,7 @@ func (m *Manager) EmitResponse(ctx *request.RequestContext) error {
 	return nil
 }
 
-func (m *Manager) EmitError(ctx *request.RequestContext, err error) error {
+func (m *Manager) EmitError(ctx *model.RequestContext, err error) error {
 	for _, p := range m.plugins {
 		slog.Debug("EmitError: try plugin", "name", p.plugin.Name())
 
@@ -100,7 +100,7 @@ func (m *Manager) EmitError(ctx *request.RequestContext, err error) error {
 	return nil
 }
 
-func (m *Manager) EmitClose(ctx *request.RequestContext) error {
+func (m *Manager) EmitClose(ctx *model.RequestContext) error {
 	for _, p := range m.plugins {
 		slog.Debug("EmitClose: try plugin", "name", p.plugin.Name())
 

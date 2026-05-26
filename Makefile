@@ -7,6 +7,8 @@ KEYCHAIN=/Library/Keychains/System.keychain
 
 PROXY=burro-proxy
 
+ARGS ?=
+
 .PHONY: certs
 certs:
 	go run ./cmd/certgen 
@@ -47,7 +49,12 @@ build:
 .PHONY: run
 run:
 	$(MAKE) gen
-	BURRO_CONFIG=config.yml && go run ./cmd/proxy
+	BURRO_CONFIG=config.yml && go run ./cmd/proxy -i $(ARGS)
+
+.PHONY: urn
+urn:
+	$(MAKE) gen
+	BURRO_CONFIG=config.yml && go run ./cmd/proxy $(ARGS)
 
 .PHONY: browser
 browser:
@@ -73,4 +80,12 @@ docker-build:
 
 .PHONY: docker-run
 docker-run:
-	docker run --rm -p 8080:8080 $(PROJECT)
+	docker run -it --rm -p 8080:8080 $(PROJECT) -i $(ARGS)
+
+.PHONY: docker-urn
+docker-urn:
+	docker run --rm -p 8080:8080 $(PROJECT) $(ARGS)
+
+.PHONY: toose
+toose:
+	goose $(ARGS) 

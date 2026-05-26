@@ -1,4 +1,4 @@
-package request
+package model
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"maps"
 	"net/http"
 	"slices"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -31,13 +32,22 @@ var transitions = map[RequestState][]RequestState{
 	StateResponding: {StateFinished},
 }
 
+// TODO: make request/response body data separate fields for transparency, move `is_new` from models.
 type RequestContext struct {
 	ID        string
 	StartTime time.Time
 	State     atomic.Int32
 
+	CreatedAt time.Time
+	UpdatedAt time.Time
+
+	Session *Session
+
 	Request  *http.Request
 	Response *http.Response
+
+	RequestBody  []byte
+	ResponseBody []byte
 
 	Context context.Context
 	Cancel  context.CancelFunc
@@ -45,23 +55,33 @@ type RequestContext struct {
 	Metadata map[string]any
 
 	IsFinished bool
+
+	mu           sync.RWMutex
+	IsNewRequest bool
 }
 
-func New(r *http.Request) *RequestContext {
+func NewCtx(session *Session, r *http.Request) *RequestContext {
 	base := r.Context()
 
 	ctx, cancel := context.WithTimeout(base, 30*time.Second)
 
 	return &RequestContext{
-		ID:        uuid.NewString(),
-		StartTime: time.Now(),
-		Request:   r,
-		Context:   ctx,
-		Cancel:    cancel,
+		ID:           uuid.NewString(),
+		StartTime:    time.Now(),
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+		Session:      session,
+		Request:      r,
+		Context:      ctx,
+		Cancel:       cancel,
+		IsNewRequest: true,
 	}
 }
 
-func NewFromParent(parent *RequestContext, r *http.Request) *RequestContext {
+func NewCtxFromParent(parent *RequestContext, r *http.Request) *RequestContext {
+	parent.mu.RLock()
+	defer parent.mu.RUnlock()
+
 	ctx, cancel := context.WithCancel(parent.Context)
 
 	var mtdata map[string]any
@@ -70,12 +90,16 @@ func NewFromParent(parent *RequestContext, r *http.Request) *RequestContext {
 	}
 
 	return &RequestContext{
-		ID:        uuid.NewString(),
-		StartTime: time.Now(),
-		Request:   r,
-		Context:   ctx,
-		Cancel:    cancel,
-		Metadata:  mtdata,
+		ID:           uuid.NewString(),
+		StartTime:    time.Now(),
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+		Session:      parent.Session,
+		Request:      r,
+		Context:      ctx,
+		Cancel:       cancel,
+		Metadata:     mtdata,
+		IsNewRequest: true,
 	}
 }
 
@@ -84,18 +108,26 @@ func (c *RequestContext) GetState() RequestState {
 }
 
 func (c *RequestContext) Transition(next RequestState) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	current := RequestState(c.State.Load())
 
 	if !slices.Contains(transitions[current], next) {
-		return fmt.Errorf("invalid request state transition: %s -> %s", current, next)
+		return fmt.Errorf("invalid request state transition: %v -> %v", current, next)
 	}
 
 	c.State.Store(int32(next))
+	c.UpdatedAt = time.Now()
 
 	return nil
 }
 
 func (c *RequestContext) Finish(resp *http.Response) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	c.Response = resp
 	c.IsFinished = true
+	c.UpdatedAt = time.Now()
 }

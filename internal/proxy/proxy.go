@@ -8,25 +8,30 @@ import (
 	"net/http"
 	"time"
 
+	"gitlab.com/marsskom/burro/internal/model"
 	"gitlab.com/marsskom/burro/internal/plugin"
-	"gitlab.com/marsskom/burro/internal/request"
 )
 
 type Proxy struct {
 	plugins *plugin.Manager
-	client  *http.Client
+	session *model.Session
+
+	client *http.Client
 
 	caCert *x509.Certificate
 	caKey  *rsa.PrivateKey
 }
 
-func New(
+func NewProxy(
 	pm *plugin.Manager,
+	session *model.Session,
 	caCert *x509.Certificate,
 	caKey *rsa.PrivateKey,
 ) *Proxy {
 	return &Proxy{
 		plugins: pm,
+		session: session,
+
 		client: &http.Client{
 			Transport: &http.Transport{
 				DialContext: (&net.Dialer{
@@ -50,7 +55,8 @@ func New(
 }
 
 func (px *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := request.New(r)
+	ctx := model.NewCtx(px.session, r)
+	px.session.AddRequest(ctx)
 
 	defer func() {
 		err := px.plugins.EmitClose(ctx)
@@ -61,11 +67,11 @@ func (px *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ctx.Cancel()
 	}()
 
-	ctx.Transition(request.StateReceived)
+	ctx.Transition(model.StateReceived)
 
 	err := px.plugins.EmitConnect(ctx)
 	if err != nil {
-		ctx.Transition(request.StateFailed)
+		ctx.Transition(model.StateFailed)
 		px.plugins.EmitError(ctx, fmt.Errorf("ServeHTTP: error on EmitConnect: %w", err))
 
 		return
@@ -78,7 +84,7 @@ func (px *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		ctx.Transition(request.StateFailed)
+		ctx.Transition(model.StateFailed)
 		px.plugins.EmitError(ctx, fmt.Errorf("ServeHTTP: error on handle request: %w", err))
 	}
 }
