@@ -122,3 +122,34 @@ func (q *Queries) UpdateSession(ctx context.Context, arg UpdateSessionParams) er
 	)
 	return err
 }
+
+const upsertSession = `-- name: UpsertSession :exec
+INSERT INTO session (id, name, description, metadata, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?)
+ON CONFLICT(id) DO UPDATE SET
+name = excluded.name,
+description = excluded.description,
+metadata = excluded.metadata,
+updated_at = excluded.updated_at
+`
+
+type UpsertSessionParams struct {
+	ID          string
+	Name        sql.NullString
+	Description sql.NullString
+	Metadata    sql.NullString
+	CreatedAt   sql.NullInt64
+	UpdatedAt   sql.NullInt64
+}
+
+func (q *Queries) UpsertSession(ctx context.Context, arg UpsertSessionParams) error {
+	_, err := q.db.ExecContext(ctx, upsertSession,
+		arg.ID,
+		arg.Name,
+		arg.Description,
+		arg.Metadata,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	return err
+}

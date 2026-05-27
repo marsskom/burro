@@ -32,7 +32,7 @@ var transitions = map[RequestState][]RequestState{
 	StateResponding: {StateFinished},
 }
 
-// TODO: make request/response body data separate fields for transparency, move `is_new` from models.
+// TODO: make request/response body data separate fields for transparency
 type RequestContext struct {
 	ID        string
 	StartTime time.Time
@@ -56,8 +56,7 @@ type RequestContext struct {
 
 	IsFinished bool
 
-	mu           sync.RWMutex
-	IsNewRequest bool
+	mu sync.RWMutex
 }
 
 func NewCtx(session *Session, r *http.Request) *RequestContext {
@@ -66,15 +65,14 @@ func NewCtx(session *Session, r *http.Request) *RequestContext {
 	ctx, cancel := context.WithTimeout(base, 30*time.Second)
 
 	return &RequestContext{
-		ID:           uuid.NewString(),
-		StartTime:    time.Now(),
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
-		Session:      session,
-		Request:      r,
-		Context:      ctx,
-		Cancel:       cancel,
-		IsNewRequest: true,
+		ID:        uuid.NewString(),
+		StartTime: time.Now(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Session:   session,
+		Request:   r,
+		Context:   ctx,
+		Cancel:    cancel,
 	}
 }
 
@@ -90,16 +88,15 @@ func NewCtxFromParent(parent *RequestContext, r *http.Request) *RequestContext {
 	}
 
 	return &RequestContext{
-		ID:           uuid.NewString(),
-		StartTime:    time.Now(),
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
-		Session:      parent.Session,
-		Request:      r,
-		Context:      ctx,
-		Cancel:       cancel,
-		Metadata:     mtdata,
-		IsNewRequest: true,
+		ID:        uuid.NewString(),
+		StartTime: time.Now(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Session:   parent.Session,
+		Request:   r,
+		Context:   ctx,
+		Cancel:    cancel,
+		Metadata:  mtdata,
 	}
 }
 

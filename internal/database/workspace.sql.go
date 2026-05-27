@@ -85,3 +85,27 @@ func (q *Queries) UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams
 	_, err := q.db.ExecContext(ctx, updateWorkspace, arg.UpdatedAt, arg.ID)
 	return err
 }
+
+const upsertWorkspace = `-- name: UpsertWorkspace :exec
+INSERT INTO workspace (id, name, created_at, updated_at)
+VALUES (?, ?, ?, ?)
+ON CONFLICT(id) DO UPDATE SET
+updated_at = excluded.updated_at
+`
+
+type UpsertWorkspaceParams struct {
+	ID        string
+	Name      string
+	CreatedAt sql.NullInt64
+	UpdatedAt sql.NullInt64
+}
+
+func (q *Queries) UpsertWorkspace(ctx context.Context, arg UpsertWorkspaceParams) error {
+	_, err := q.db.ExecContext(ctx, upsertWorkspace,
+		arg.ID,
+		arg.Name,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	return err
+}

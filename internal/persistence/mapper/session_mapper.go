@@ -21,13 +21,12 @@ func FromStoredSession(storedSession database.Session) (*model.Session, error) {
 	}
 
 	return &model.Session{
-		ID:           storedSession.ID,
-		Name:         persistence.NullString(storedSession.Name),
-		Description:  persistence.NullString(storedSession.Description),
-		CreatedAt:    time.UnixMilli(storedSession.CreatedAt.Int64),
-		UpdatedAt:    time.UnixMilli(storedSession.UpdatedAt.Int64),
-		Metadata:     mtdata,
-		IsNewSession: false,
+		ID:          storedSession.ID,
+		Name:        persistence.NullString(storedSession.Name),
+		Description: persistence.NullString(storedSession.Description),
+		CreatedAt:   time.UnixMilli(storedSession.CreatedAt.Int64),
+		UpdatedAt:   time.UnixMilli(storedSession.UpdatedAt.Int64),
+		Metadata:    mtdata,
 	}, nil
 }
 

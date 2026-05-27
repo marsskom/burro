@@ -52,24 +52,14 @@ func (r *WorkspaceRepository) SaveWorkspace(ctx context.Context, db *sql.DB, wor
 	q := database.New(tx)
 
 	// Workspace.
-	if workspace.IsNewWorkspace {
-		_, err := q.CreateWorkspace(ctx, database.CreateWorkspaceParams{
-			ID:        storedWorkspace.ID,
-			Name:      storedWorkspace.Name,
-			CreatedAt: storedWorkspace.CreatedAt,
-			UpdatedAt: storedWorkspace.UpdatedAt,
-		})
-		if err != nil {
-			return fmt.Errorf("error on workspace insert: %w", err)
-		}
-	} else {
-		err = q.UpdateWorkspace(ctx, database.UpdateWorkspaceParams{
-			ID:        storedWorkspace.ID,
-			UpdatedAt: storedWorkspace.UpdatedAt,
-		})
-		if err != nil {
-			return fmt.Errorf("error on workspace update: %w", err)
-		}
+	err = q.UpsertWorkspace(ctx, database.UpsertWorkspaceParams{
+		ID:        storedWorkspace.ID,
+		Name:      storedWorkspace.Name,
+		CreatedAt: storedWorkspace.CreatedAt,
+		UpdatedAt: storedWorkspace.UpdatedAt,
+	})
+	if err != nil {
+		return fmt.Errorf("error on workspace save into db: %w", err)
 	}
 
 	// Sessions.

@@ -175,3 +175,56 @@ func (q *Queries) UpdateRequest(ctx context.Context, arg UpdateRequestParams) er
 	)
 	return err
 }
+
+const upsertRequest = `-- name: UpsertRequest :exec
+INSERT INTO request (id, session_id, host, url, method, request_raw, request_body, response_raw, response_body, start_time, state, is_finished, metadata, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(id) DO UPDATE SET
+request_raw = excluded.request_raw,
+request_body = excluded.request_body,
+response_raw = excluded.response_raw,
+response_body = excluded.response_body,
+state = excluded.state,
+is_finished = excluded.is_finished,
+metadata = excluded.metadata,
+updated_at = excluded.updated_at
+`
+
+type UpsertRequestParams struct {
+	ID           string
+	SessionID    string
+	Host         string
+	Url          string
+	Method       string
+	RequestRaw   []byte
+	RequestBody  []byte
+	ResponseRaw  []byte
+	ResponseBody []byte
+	StartTime    int64
+	State        sql.NullInt64
+	IsFinished   sql.NullInt64
+	Metadata     sql.NullString
+	CreatedAt    sql.NullInt64
+	UpdatedAt    sql.NullInt64
+}
+
+func (q *Queries) UpsertRequest(ctx context.Context, arg UpsertRequestParams) error {
+	_, err := q.db.ExecContext(ctx, upsertRequest,
+		arg.ID,
+		arg.SessionID,
+		arg.Host,
+		arg.Url,
+		arg.Method,
+		arg.RequestRaw,
+		arg.RequestBody,
+		arg.ResponseRaw,
+		arg.ResponseBody,
+		arg.StartTime,
+		arg.State,
+		arg.IsFinished,
+		arg.Metadata,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	return err
+}

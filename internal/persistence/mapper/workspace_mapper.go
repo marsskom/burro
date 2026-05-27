@@ -10,11 +10,10 @@ import (
 
 func FromStoredWorkspace(storedWorkspace database.Workspace) (*model.Workspace, error) {
 	return &model.Workspace{
-		ID:             storedWorkspace.ID,
-		Name:           model.WorkspaceName(storedWorkspace.Name),
-		CreatedAt:      time.UnixMicro(storedWorkspace.CreatedAt.Int64),
-		UpdatedAt:      time.UnixMicro(storedWorkspace.UpdatedAt.Int64),
-		IsNewWorkspace: false,
+		ID:        storedWorkspace.ID,
+		Name:      model.WorkspaceName(storedWorkspace.Name),
+		CreatedAt: time.UnixMicro(storedWorkspace.CreatedAt.Int64),
+		UpdatedAt: time.UnixMicro(storedWorkspace.UpdatedAt.Int64),
 	}, nil
 }
 

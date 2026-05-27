@@ -53,7 +53,6 @@ func FromStoredRequest(storedRequest database.Request) (*model.RequestContext, e
 		ResponseBody: storedRequest.ResponseBody,
 		Metadata:     mtdata,
 		IsFinished:   persistence.IntToBool(int(storedRequest.IsFinished.Int64)),
-		IsNewRequest: false,
 	}
 
 	requestContext.State.Store(int32(storedRequest.State.Int64))

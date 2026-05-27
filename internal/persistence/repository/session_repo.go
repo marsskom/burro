@@ -39,31 +39,16 @@ func (r *SessionRepository) SaveSession(ctx context.Context, session *model.Sess
 		return fmt.Errorf("cannot comvert session data for db: %w", err)
 	}
 
-	if session.IsNewSession {
-		_, err := r.q.CreateSession(ctx, database.CreateSessionParams{
-			ID:          storedSession.ID,
-			Name:        storedSession.Name,
-			Description: storedSession.Description,
-			Metadata:    storedSession.Metadata,
-			CreatedAt:   storedSession.CreatedAt,
-			UpdatedAt:   storedSession.UpdatedAt,
-		})
-		if err != nil {
-			return fmt.Errorf("error on session insert: %w", err)
-		}
-
-		return nil
-	}
-
-	err = r.q.UpdateSession(ctx, database.UpdateSessionParams{
+	err = r.q.UpsertSession(ctx, database.UpsertSessionParams{
 		ID:          storedSession.ID,
 		Name:        storedSession.Name,
 		Description: storedSession.Description,
 		Metadata:    storedSession.Metadata,
+		CreatedAt:   storedSession.CreatedAt,
 		UpdatedAt:   storedSession.UpdatedAt,
 	})
 	if err != nil {
-		return fmt.Errorf("error on session update: %w", err)
+		return fmt.Errorf("error on session save into db: %w", err)
 	}
 
 	return nil

@@ -19,16 +19,13 @@ type Session struct {
 	Requests []*RequestContext
 
 	Metadata map[string]any
-
-	IsNewSession bool
 }
 
 func NewSession() *Session {
 	return &Session{
-		ID:           uuid.NewString(),
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
-		IsNewSession: true,
+		ID:        uuid.NewString(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 }
 

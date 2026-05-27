@@ -25,44 +25,26 @@ func (r *RequestRepository) SaveRequest(ctx context.Context, requestContext *mod
 		return fmt.Errorf("cannot convert request data for db: %w", err)
 	}
 
-	if requestContext.IsNewRequest {
-		_, err := r.q.CreateRequest(ctx, database.CreateRequestParams{
-			ID:           storedRequest.ID,
-			SessionID:    storedRequest.SessionID,
-			Host:         storedRequest.Host,
-			Url:          storedRequest.Url,
-			Method:       storedRequest.Method,
-			RequestRaw:   storedRequest.RequestRaw,
-			RequestBody:  storedRequest.RequestBody,
-			ResponseRaw:  storedRequest.ResponseRaw,
-			ResponseBody: storedRequest.ResponseBody,
-			StartTime:    storedRequest.StartTime,
-			State:        storedRequest.State,
-			IsFinished:   storedRequest.IsFinished,
-			Metadata:     storedRequest.Metadata,
-			CreatedAt:    storedRequest.CreatedAt,
-			UpdatedAt:    storedRequest.UpdatedAt,
-		})
-		if err != nil {
-			return fmt.Errorf("error on request insert: %w", err)
-		}
-
-		return nil
-	}
-
-	err = r.q.UpdateRequest(ctx, database.UpdateRequestParams{
+	err = r.q.UpsertRequest(ctx, database.UpsertRequestParams{
 		ID:           storedRequest.ID,
+		SessionID:    storedRequest.SessionID,
+		Host:         storedRequest.Host,
+		Url:          storedRequest.Url,
+		Method:       storedRequest.Method,
 		RequestRaw:   storedRequest.RequestRaw,
 		RequestBody:  storedRequest.RequestBody,
 		ResponseRaw:  storedRequest.ResponseRaw,
 		ResponseBody: storedRequest.ResponseBody,
+		StartTime:    storedRequest.StartTime,
 		State:        storedRequest.State,
 		IsFinished:   storedRequest.IsFinished,
 		Metadata:     storedRequest.Metadata,
+		CreatedAt:    storedRequest.CreatedAt,
 		UpdatedAt:    storedRequest.UpdatedAt,
 	})
 	if err != nil {
-		return fmt.Errorf("error on request update: %w", err)
+		return fmt.Errorf("error on request save into db: %w", err)
 	}
+
 	return nil
 }

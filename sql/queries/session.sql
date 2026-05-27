@@ -13,3 +13,12 @@ RETURNING *;
 UPDATE session
 SET name = ?, description = ?, metadata = ?, updated_at = ?
 WHERE id = ?;
+
+-- name: UpsertSession :exec
+INSERT INTO session (id, name, description, metadata, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?)
+ON CONFLICT(id) DO UPDATE SET
+name = excluded.name,
+description = excluded.description,
+metadata = excluded.metadata,
+updated_at = excluded.updated_at;

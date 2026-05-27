@@ -34,16 +34,13 @@ type Workspace struct {
 
 	mu       sync.RWMutex
 	Sessions []*Session
-
-	IsNewWorkspace bool
 }
 
 func NewWorkspace() *Workspace {
 	return &Workspace{
-		ID:             uuid.NewString(),
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
-		IsNewWorkspace: true,
+		ID:        uuid.NewString(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 }
 
