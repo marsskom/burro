@@ -1,66 +1,21 @@
 package mapper
 
 import (
-	"bufio"
-	"bytes"
 	"database/sql"
+	"errors"
 	"fmt"
-	"net/http"
 	"net/http/httputil"
-	"time"
 
 	"gitlab.com/marsskom/burro/internal/database"
 	"gitlab.com/marsskom/burro/internal/model"
 	"gitlab.com/marsskom/burro/internal/persistence"
 )
 
-// TODO: make some DTO because managing this is going to be painful
-func FromStoredRequest(storedRequest database.Request) (*model.RequestContext, error) {
-	mtdata := map[string]any{}
-	if storedRequest.Metadata.Valid {
-		m, err := persistence.TextToMap(storedRequest.Metadata.String)
-		if err != nil {
-			return nil, fmt.Errorf("cannot convert metadata to map: %w", err)
-		}
-		mtdata = m
-	}
-
-	req, err := http.ReadRequest(bufio.NewReader(bytes.NewReader(storedRequest.RequestRaw)))
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse raw request: %w", err)
-	}
-
-	var response *http.Response
-	if len(storedRequest.RequestRaw) > 0 {
-		res, err := http.ReadResponse(
-			bufio.NewReader(bytes.NewReader(storedRequest.ResponseRaw)),
-			req,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("cannot parse raw response: %w", err)
-		}
-		response = res
-	}
-
-	requestContext := &model.RequestContext{
-		ID:           storedRequest.ID,
-		StartTime:    time.UnixMilli(storedRequest.StartTime),
-		CreatedAt:    time.UnixMilli(storedRequest.CreatedAt.Int64),
-		UpdatedAt:    time.UnixMilli(storedRequest.UpdatedAt.Int64),
-		Request:      req,
-		Response:     response,
-		RequestBody:  storedRequest.RequestBody,
-		ResponseBody: storedRequest.ResponseBody,
-		Metadata:     mtdata,
-		IsFinished:   persistence.IntToBool(int(storedRequest.IsFinished.Int64)),
-	}
-
-	requestContext.State.Store(int32(storedRequest.State.Int64))
-
-	return requestContext, nil
-}
-
 func ToStoredRequest(requestContext *model.RequestContext) (database.Request, error) {
+	if requestContext.RequestSnapshot == nil {
+		return database.Request{}, errors.New("request snapshot cannot be nil")
+	}
+
 	mtdata := sql.NullString{
 		Valid:  false,
 		String: "",
@@ -90,6 +45,67 @@ func ToStoredRequest(requestContext *model.RequestContext) (database.Request, er
 		responseRaw = resRaw
 	}
 
+	respData := struct {
+		Status        sql.NullString
+		StatusCode    sql.NullInt64
+		Proto         sql.NullString
+		Headers       sql.NullString
+		ContentLength sql.NullInt64
+		Duration      sql.NullInt64
+		Body          []byte
+	}{
+		Status: sql.NullString{
+			Valid:  false,
+			String: "",
+		},
+		StatusCode: sql.NullInt64{
+			Valid: false,
+			Int64: 0,
+		},
+		Proto: sql.NullString{
+			Valid:  false,
+			String: "",
+		},
+		Headers: sql.NullString{
+			Valid:  false,
+			String: "",
+		},
+		ContentLength: sql.NullInt64{
+			Valid: false,
+			Int64: 0,
+		},
+		Body: make([]byte, 0),
+	}
+	if requestContext.ResponseSnapshot != nil {
+		respData.Status = sql.NullString{
+			Valid:  true,
+			String: requestContext.ResponseSnapshot.Status,
+		}
+		respData.StatusCode = sql.NullInt64{
+			Valid: true,
+			Int64: int64(requestContext.ResponseSnapshot.StatusCode),
+		}
+		respData.Proto = sql.NullString{
+			Valid:  true,
+			String: requestContext.ResponseSnapshot.Proto,
+		}
+		respData.ContentLength = sql.NullInt64{
+			Valid: true,
+			Int64: int64(requestContext.ResponseSnapshot.ContentLength),
+		}
+		respData.Body = requestContext.ResponseSnapshot.Body
+
+		respHeaders, err := persistence.MapToText(requestContext.ResponseSnapshot.Headers)
+		if err != nil {
+			return database.Request{}, fmt.Errorf("cannot convert response headers map into string: %w", err)
+		}
+
+		respData.Headers = sql.NullString{
+			Valid:  true,
+			String: respHeaders,
+		}
+	}
+
 	isFinished := sql.NullInt64{
 		Valid: true,
 		Int64: 0,
@@ -101,23 +117,56 @@ func ToStoredRequest(requestContext *model.RequestContext) (database.Request, er
 		}
 	}
 
+	headers, err := persistence.MapToText(requestContext.RequestSnapshot.Headers)
+	if err != nil {
+		return database.Request{}, fmt.Errorf("cannot convert request headers map into string: %w", err)
+	}
+
+	queryParams, err := persistence.MapToText(requestContext.RequestSnapshot.QueryParams)
+	if err != nil {
+		return database.Request{}, fmt.Errorf("cannot convert query params map into string: %w", err)
+	}
+
+	cookiesAsText, err := persistence.MapToText(requestContext.RequestSnapshot.Cookies)
+	if err != nil {
+		return database.Request{}, fmt.Errorf("cannot convert cookies into string: %w", err)
+	}
+
 	return database.Request{
-		ID:           requestContext.ID,
-		SessionID:    requestContext.Session.ID,
-		Host:         requestContext.Request.Host,
-		Url:          requestContext.Request.URL.String(),
-		Method:       requestContext.Request.Method,
-		RequestRaw:   requestRaw,
-		RequestBody:  requestContext.RequestBody,
-		ResponseRaw:  responseRaw,
-		ResponseBody: requestContext.ResponseBody,
-		StartTime:    requestContext.StartTime.UnixMilli(),
+		ID:            requestContext.ID,
+		SessionID:     requestContext.Session.ID,
+		Proto:         requestContext.RequestSnapshot.Proto,
+		Host:          requestContext.RequestSnapshot.Host,
+		Scheme:        requestContext.RequestSnapshot.Scheme,
+		Url:           requestContext.RequestSnapshot.URL,
+		Path:          requestContext.RequestSnapshot.Path,
+		QueryParams:   queryParams,
+		Method:        requestContext.RequestSnapshot.Method,
+		Headers:       headers,
+		Cookies:       cookiesAsText,
+		ContentLength: int64(requestContext.RequestSnapshot.ContentLength),
+		RemoteAddr:    requestContext.RequestSnapshot.RemoteAddr,
+		RequestBody:   requestContext.RequestSnapshot.Body,
+
+		RequestRaw: requestRaw,
+
+		StartTime: requestContext.StartTime.UnixMilli(),
 		State: sql.NullInt64{
 			Valid: true,
 			Int64: int64(requestContext.State.Load()),
 		},
 		IsFinished: isFinished,
 		Metadata:   mtdata,
+
+		RespStatus:        respData.Status,
+		RespStatusCode:    respData.StatusCode,
+		RespProto:         respData.Proto,
+		RespHeaders:       respData.Headers,
+		RespContentLength: respData.ContentLength,
+		ResponseBody:      respData.Body,
+
+		ResponseRaw: responseRaw,
+
 		CreatedAt: sql.NullInt64{
 			Valid: true,
 			Int64: requestContext.CreatedAt.UnixMilli(),

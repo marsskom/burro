@@ -10,7 +10,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-func MapToText(m map[string]any) (string, error) {
+func MapToText(m any) (string, error) {
 	b, err := json.Marshal(m)
 	if err != nil {
 		return "", fmt.Errorf("cannot convert map to json: %w", err)
@@ -19,11 +19,11 @@ func MapToText(m map[string]any) (string, error) {
 	return string(b), nil
 }
 
-func TextToMap(s string) (map[string]any, error) {
-	var m map[string]any
+func TextToMap[T any](s string) (T, error) {
+	var m T
 	err := json.Unmarshal([]byte(s), &m)
 	if err != nil {
-		return nil, fmt.Errorf("cannot unmarshall string json: %w", err)
+		return m, fmt.Errorf("cannot unmarshall string json: %w", err)
 	}
 
 	return m, nil

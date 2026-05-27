@@ -1,8 +1,10 @@
 package model
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"maps"
 	"net/http"
 	"slices"
@@ -32,7 +34,6 @@ var transitions = map[RequestState][]RequestState{
 	StateResponding: {StateFinished},
 }
 
-// TODO: make request/response body data separate fields for transparency
 type RequestContext struct {
 	ID        string
 	StartTime time.Time
@@ -46,8 +47,8 @@ type RequestContext struct {
 	Request  *http.Request
 	Response *http.Response
 
-	RequestBody  []byte
-	ResponseBody []byte
+	RequestSnapshot  *RequestSnapshot
+	ResponseSnapshot *ResponseSnapshot
 
 	Context context.Context
 	Cancel  context.CancelFunc
@@ -127,4 +128,131 @@ func (c *RequestContext) Finish(resp *http.Response) {
 	c.Response = resp
 	c.IsFinished = true
 	c.UpdatedAt = time.Now()
+}
+
+type CookieSnapshot struct {
+	Name        string
+	Value       string
+	Quoted      bool
+	Path        string
+	Domain      string
+	Expires     time.Time
+	MaxAge      int
+	Secure      bool
+	HttpOnly    bool
+	SameSite    int
+	Partitioned bool
+}
+
+func ExtractCookies(r *http.Request) ([]*CookieSnapshot, error) {
+	cookies := make([]*CookieSnapshot, len(r.Cookies()))
+	for _, c := range r.Cookies() {
+		cookies = append(cookies, &CookieSnapshot{
+			Name:        c.Name,
+			Value:       c.Value,
+			Quoted:      c.Quoted,
+			Path:        c.Path,
+			Domain:      c.Domain,
+			Expires:     c.Expires,
+			MaxAge:      c.MaxAge,
+			Secure:      c.Secure,
+			HttpOnly:    c.HttpOnly,
+			SameSite:    int(c.SameSite),
+			Partitioned: c.Partitioned,
+		})
+	}
+
+	return cookies, nil
+}
+
+type RequestSnapshot struct {
+	Proto         string
+	Host          string
+	Method        string
+	Scheme        string
+	URL           string
+	Path          string
+	QueryParams   map[string][]string
+	Headers       map[string][]string
+	Cookies       []*CookieSnapshot
+	ContentLength int
+	RemoteAddr    string
+	Body          []byte
+}
+
+func MakeRequestSnapshot(r *http.Request) (*RequestSnapshot, error) {
+	queryParams := make(map[string][]string, len(r.URL.Query()))
+	for k, v := range r.URL.Query() {
+		queryParams[k] = append([]string(nil), v...)
+	}
+
+	reqHeaders := r.Header.Clone()
+	headers := make(map[string][]string, len(reqHeaders))
+	for k, v := range reqHeaders {
+		headers[k] = append([]string(nil), v...)
+	}
+
+	cookies, err := ExtractCookies(r)
+	if err != nil {
+		return &RequestSnapshot{}, fmt.Errorf("error on cookie extraction from the request: %w", err)
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return &RequestSnapshot{}, fmt.Errorf("error on read request body for snapshot: %w", err)
+	}
+
+	r.Body.Close()
+	// Restores request body for next request.
+	r.Body = io.NopCloser(bytes.NewReader(body))
+
+	return &RequestSnapshot{
+		Proto:         r.Proto,
+		Host:          r.Host,
+		Method:        r.Method,
+		Scheme:        r.URL.Scheme,
+		URL:           r.URL.String(),
+		Path:          r.URL.Path,
+		QueryParams:   queryParams,
+		Headers:       headers,
+		Cookies:       cookies,
+		ContentLength: len(body),
+		RemoteAddr:    r.RemoteAddr,
+		Body:          body,
+	}, nil
+}
+
+type ResponseSnapshot struct {
+	Status        string
+	StatusCode    int
+	Proto         string
+	Headers       map[string][]string
+	ContentLength int
+	Body          []byte
+}
+
+func MakeResponseSnapshot(res *http.Response) (*ResponseSnapshot, error) {
+	resHeaders := res.Header.Clone()
+	headers := make(map[string][]string, len(resHeaders))
+	for k, v := range resHeaders {
+		headers[k] = append([]string(nil), v...)
+	}
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return &ResponseSnapshot{}, fmt.Errorf("error on read response body for snapshot: %w", err)
+	}
+
+	res.Body.Close()
+	// Restores response body.
+	res.Body = io.NopCloser(bytes.NewReader(body))
+
+	return &ResponseSnapshot{
+		Status:        res.Status,
+		StatusCode:    res.StatusCode,
+		Proto:         res.Proto,
+		Headers:       resHeaders,
+		ContentLength: len(body),
+		Body:          body,
+	}, nil
 }

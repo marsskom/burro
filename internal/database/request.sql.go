@@ -11,27 +11,40 @@ import (
 )
 
 const createRequest = `-- name: CreateRequest :one
-INSERT INTO request (id, session_id, host, url, method, request_raw, request_body, response_raw, response_body, start_time, state, is_finished, metadata, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, session_id, host, url, method, request_raw, response_raw, start_time, state, is_finished, metadata, created_at, updated_at, response_body, request_body
+INSERT INTO request (id, session_id, host, url, method, request_raw, request_body, response_raw, response_body, start_time, state, is_finished, metadata, created_at, updated_at, scheme, path, proto, headers, cookies, query_params, content_length, remote_addr, resp_status, resp_status_code, resp_proto, resp_headers, resp_content_length)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, session_id, host, url, method, request_raw, response_raw, start_time, state, is_finished, metadata, created_at, updated_at, response_body, request_body, scheme, path, proto, headers, cookies, query_params, content_length, remote_addr, resp_status, resp_status_code, resp_proto, resp_headers, resp_content_length
 `
 
 type CreateRequestParams struct {
-	ID           string
-	SessionID    string
-	Host         string
-	Url          string
-	Method       string
-	RequestRaw   []byte
-	RequestBody  []byte
-	ResponseRaw  []byte
-	ResponseBody []byte
-	StartTime    int64
-	State        sql.NullInt64
-	IsFinished   sql.NullInt64
-	Metadata     sql.NullString
-	CreatedAt    sql.NullInt64
-	UpdatedAt    sql.NullInt64
+	ID                string
+	SessionID         string
+	Host              string
+	Url               string
+	Method            string
+	RequestRaw        []byte
+	RequestBody       []byte
+	ResponseRaw       []byte
+	ResponseBody      []byte
+	StartTime         int64
+	State             sql.NullInt64
+	IsFinished        sql.NullInt64
+	Metadata          sql.NullString
+	CreatedAt         sql.NullInt64
+	UpdatedAt         sql.NullInt64
+	Scheme            string
+	Path              string
+	Proto             string
+	Headers           string
+	Cookies           string
+	QueryParams       string
+	ContentLength     int64
+	RemoteAddr        string
+	RespStatus        sql.NullString
+	RespStatusCode    sql.NullInt64
+	RespProto         sql.NullString
+	RespHeaders       sql.NullString
+	RespContentLength sql.NullInt64
 }
 
 func (q *Queries) CreateRequest(ctx context.Context, arg CreateRequestParams) (Request, error) {
@@ -51,6 +64,19 @@ func (q *Queries) CreateRequest(ctx context.Context, arg CreateRequestParams) (R
 		arg.Metadata,
 		arg.CreatedAt,
 		arg.UpdatedAt,
+		arg.Scheme,
+		arg.Path,
+		arg.Proto,
+		arg.Headers,
+		arg.Cookies,
+		arg.QueryParams,
+		arg.ContentLength,
+		arg.RemoteAddr,
+		arg.RespStatus,
+		arg.RespStatusCode,
+		arg.RespProto,
+		arg.RespHeaders,
+		arg.RespContentLength,
 	)
 	var i Request
 	err := row.Scan(
@@ -69,12 +95,25 @@ func (q *Queries) CreateRequest(ctx context.Context, arg CreateRequestParams) (R
 		&i.UpdatedAt,
 		&i.ResponseBody,
 		&i.RequestBody,
+		&i.Scheme,
+		&i.Path,
+		&i.Proto,
+		&i.Headers,
+		&i.Cookies,
+		&i.QueryParams,
+		&i.ContentLength,
+		&i.RemoteAddr,
+		&i.RespStatus,
+		&i.RespStatusCode,
+		&i.RespProto,
+		&i.RespHeaders,
+		&i.RespContentLength,
 	)
 	return i, err
 }
 
 const getBySessionID = `-- name: GetBySessionID :many
-SELECT id, session_id, host, url, method, request_raw, response_raw, start_time, state, is_finished, metadata, created_at, updated_at, response_body, request_body FROM request WHERE session_id = ?
+SELECT id, session_id, host, url, method, request_raw, response_raw, start_time, state, is_finished, metadata, created_at, updated_at, response_body, request_body, scheme, path, proto, headers, cookies, query_params, content_length, remote_addr, resp_status, resp_status_code, resp_proto, resp_headers, resp_content_length FROM request WHERE session_id = ?
 `
 
 func (q *Queries) GetBySessionID(ctx context.Context, sessionID string) ([]Request, error) {
@@ -102,6 +141,19 @@ func (q *Queries) GetBySessionID(ctx context.Context, sessionID string) ([]Reque
 			&i.UpdatedAt,
 			&i.ResponseBody,
 			&i.RequestBody,
+			&i.Scheme,
+			&i.Path,
+			&i.Proto,
+			&i.Headers,
+			&i.Cookies,
+			&i.QueryParams,
+			&i.ContentLength,
+			&i.RemoteAddr,
+			&i.RespStatus,
+			&i.RespStatusCode,
+			&i.RespProto,
+			&i.RespHeaders,
+			&i.RespContentLength,
 		); err != nil {
 			return nil, err
 		}
@@ -117,7 +169,7 @@ func (q *Queries) GetBySessionID(ctx context.Context, sessionID string) ([]Reque
 }
 
 const getRequest = `-- name: GetRequest :one
-SELECT id, session_id, host, url, method, request_raw, response_raw, start_time, state, is_finished, metadata, created_at, updated_at, response_body, request_body FROM request WHERE id = ?
+SELECT id, session_id, host, url, method, request_raw, response_raw, start_time, state, is_finished, metadata, created_at, updated_at, response_body, request_body, scheme, path, proto, headers, cookies, query_params, content_length, remote_addr, resp_status, resp_status_code, resp_proto, resp_headers, resp_content_length FROM request WHERE id = ?
 `
 
 func (q *Queries) GetRequest(ctx context.Context, id string) (Request, error) {
@@ -139,73 +191,108 @@ func (q *Queries) GetRequest(ctx context.Context, id string) (Request, error) {
 		&i.UpdatedAt,
 		&i.ResponseBody,
 		&i.RequestBody,
+		&i.Scheme,
+		&i.Path,
+		&i.Proto,
+		&i.Headers,
+		&i.Cookies,
+		&i.QueryParams,
+		&i.ContentLength,
+		&i.RemoteAddr,
+		&i.RespStatus,
+		&i.RespStatusCode,
+		&i.RespProto,
+		&i.RespHeaders,
+		&i.RespContentLength,
 	)
 	return i, err
 }
 
 const updateRequest = `-- name: UpdateRequest :exec
 UPDATE request
-SET request_raw = ?, request_body = ?, response_raw = ?, response_body = ?, state = ?, is_finished = ?, metadata = ?, updated_at = ?
+SET state = ?, is_finished = ?, metadata = ?, updated_at = ?, response_raw = ?, response_body = ?, resp_status = ?, resp_status_code = ?, resp_proto = ?, resp_headers = ?, resp_content_length = ?
 WHERE id = ?
 `
 
 type UpdateRequestParams struct {
-	RequestRaw   []byte
-	RequestBody  []byte
-	ResponseRaw  []byte
-	ResponseBody []byte
-	State        sql.NullInt64
-	IsFinished   sql.NullInt64
-	Metadata     sql.NullString
-	UpdatedAt    sql.NullInt64
-	ID           string
+	State             sql.NullInt64
+	IsFinished        sql.NullInt64
+	Metadata          sql.NullString
+	UpdatedAt         sql.NullInt64
+	ResponseRaw       []byte
+	ResponseBody      []byte
+	RespStatus        sql.NullString
+	RespStatusCode    sql.NullInt64
+	RespProto         sql.NullString
+	RespHeaders       sql.NullString
+	RespContentLength sql.NullInt64
+	ID                string
 }
 
 func (q *Queries) UpdateRequest(ctx context.Context, arg UpdateRequestParams) error {
 	_, err := q.db.ExecContext(ctx, updateRequest,
-		arg.RequestRaw,
-		arg.RequestBody,
-		arg.ResponseRaw,
-		arg.ResponseBody,
 		arg.State,
 		arg.IsFinished,
 		arg.Metadata,
 		arg.UpdatedAt,
+		arg.ResponseRaw,
+		arg.ResponseBody,
+		arg.RespStatus,
+		arg.RespStatusCode,
+		arg.RespProto,
+		arg.RespHeaders,
+		arg.RespContentLength,
 		arg.ID,
 	)
 	return err
 }
 
 const upsertRequest = `-- name: UpsertRequest :exec
-INSERT INTO request (id, session_id, host, url, method, request_raw, request_body, response_raw, response_body, start_time, state, is_finished, metadata, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO request (id, session_id, host, url, method, request_raw, request_body, response_raw, response_body, start_time, state, is_finished, metadata, created_at, updated_at, scheme, path, proto, headers, cookies, query_params, content_length, remote_addr, resp_status, resp_status_code, resp_proto, resp_headers, resp_content_length)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET
-request_raw = excluded.request_raw,
-request_body = excluded.request_body,
-response_raw = excluded.response_raw,
-response_body = excluded.response_body,
 state = excluded.state,
 is_finished = excluded.is_finished,
 metadata = excluded.metadata,
-updated_at = excluded.updated_at
+updated_at = excluded.updated_at,
+response_raw = excluded.response_raw,
+response_body = excluded.response_body,
+resp_status = excluded.resp_status,
+resp_status_code = excluded.resp_status_code,
+resp_proto = excluded.resp_proto,
+resp_headers = excluded.resp_headers,
+resp_content_length = excluded.resp_content_length
 `
 
 type UpsertRequestParams struct {
-	ID           string
-	SessionID    string
-	Host         string
-	Url          string
-	Method       string
-	RequestRaw   []byte
-	RequestBody  []byte
-	ResponseRaw  []byte
-	ResponseBody []byte
-	StartTime    int64
-	State        sql.NullInt64
-	IsFinished   sql.NullInt64
-	Metadata     sql.NullString
-	CreatedAt    sql.NullInt64
-	UpdatedAt    sql.NullInt64
+	ID                string
+	SessionID         string
+	Host              string
+	Url               string
+	Method            string
+	RequestRaw        []byte
+	RequestBody       []byte
+	ResponseRaw       []byte
+	ResponseBody      []byte
+	StartTime         int64
+	State             sql.NullInt64
+	IsFinished        sql.NullInt64
+	Metadata          sql.NullString
+	CreatedAt         sql.NullInt64
+	UpdatedAt         sql.NullInt64
+	Scheme            string
+	Path              string
+	Proto             string
+	Headers           string
+	Cookies           string
+	QueryParams       string
+	ContentLength     int64
+	RemoteAddr        string
+	RespStatus        sql.NullString
+	RespStatusCode    sql.NullInt64
+	RespProto         sql.NullString
+	RespHeaders       sql.NullString
+	RespContentLength sql.NullInt64
 }
 
 func (q *Queries) UpsertRequest(ctx context.Context, arg UpsertRequestParams) error {
@@ -225,6 +312,19 @@ func (q *Queries) UpsertRequest(ctx context.Context, arg UpsertRequestParams) er
 		arg.Metadata,
 		arg.CreatedAt,
 		arg.UpdatedAt,
+		arg.Scheme,
+		arg.Path,
+		arg.Proto,
+		arg.Headers,
+		arg.Cookies,
+		arg.QueryParams,
+		arg.ContentLength,
+		arg.RemoteAddr,
+		arg.RespStatus,
+		arg.RespStatusCode,
+		arg.RespProto,
+		arg.RespHeaders,
+		arg.RespContentLength,
 	)
 	return err
 }

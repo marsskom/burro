@@ -13,7 +13,7 @@ import (
 func FromStoredSession(storedSession database.Session) (*model.Session, error) {
 	mtdata := map[string]any{}
 	if storedSession.Metadata.Valid {
-		m, err := persistence.TextToMap(storedSession.Metadata.String)
+		m, err := persistence.TextToMap[map[string]any](storedSession.Metadata.String)
 		if err != nil {
 			return nil, fmt.Errorf("cannot convert metadata to map: %w", err)
 		}

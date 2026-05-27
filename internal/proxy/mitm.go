@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"bufio"
-	"bytes"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -10,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"syscall"
 	"time"
 
 	"gitlab.com/marsskom/burro/internal/cert"
@@ -46,17 +46,12 @@ func (px *Proxy) handleHTTPS(w http.ResponseWriter, ctx *model.RequestContext) e
 		return fmt.Errorf("handleHTTPS: cannot transit context to prepared state: %w", err)
 	}
 
-	body, err := io.ReadAll(ctx.Request.Body)
+	reqSnapshot, err := model.MakeRequestSnapshot(ctx.Request)
 	if err != nil {
-		return fmt.Errorf("HandleHTTP: error on read request body: %w", err)
+		return fmt.Errorf("HandleHTTP: error on request snapshot creation: %w", err)
 	}
 
-	ctx.Request.Body.Close()
-
-	ctx.RequestBody = body
-
-	// Restore request body for next request.
-	ctx.Request.Body = io.NopCloser(bytes.NewReader(body))
+	ctx.RequestSnapshot = reqSnapshot
 
 	host := ctx.Request.Host
 	if strings.Contains(host, ":") {
@@ -141,17 +136,12 @@ func (px *Proxy) handleHTTPS(w http.ResponseWriter, ctx *model.RequestContext) e
 			return fmt.Errorf("handleHTTPS: cannot transit new context to prepared state: %w", err)
 		}
 
-		body, err := io.ReadAll(newCtx.Request.Body)
+		reqSnapshot, err := model.MakeRequestSnapshot(newCtx.Request)
 		if err != nil {
-			return fmt.Errorf("HandleHTTP: error on read request body: %w", err)
+			return fmt.Errorf("HandleHTTP: error on request snapshot creation: %w", err)
 		}
 
-		newCtx.Request.Body.Close()
-
-		newCtx.RequestBody = body
-
-		// Restore request body for next request.
-		newCtx.Request.Body = io.NopCloser(bytes.NewReader(body))
+		newCtx.RequestSnapshot = reqSnapshot
 
 		req = req.WithContext(newCtx.Context)
 		req.URL.Scheme = "https"
@@ -177,7 +167,7 @@ func (px *Proxy) handleHTTPS(w http.ResponseWriter, ctx *model.RequestContext) e
 		tlsConn.SetWriteDeadline(time.Now().Add(60 * time.Second))
 
 		err = newCtx.Response.Write(tlsConn)
-		if err != nil {
+		if err != nil && !errors.Is(err, syscall.EPIPE) {
 			return fmt.Errorf("handleHTTPS: cannot write response: %w", err)
 		}
 

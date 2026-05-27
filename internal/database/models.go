@@ -9,21 +9,34 @@ import (
 )
 
 type Request struct {
-	ID           string
-	SessionID    string
-	Host         string
-	Url          string
-	Method       string
-	RequestRaw   []byte
-	ResponseRaw  []byte
-	StartTime    int64
-	State        sql.NullInt64
-	IsFinished   sql.NullInt64
-	Metadata     sql.NullString
-	CreatedAt    sql.NullInt64
-	UpdatedAt    sql.NullInt64
-	ResponseBody []byte
-	RequestBody  []byte
+	ID                string
+	SessionID         string
+	Host              string
+	Url               string
+	Method            string
+	RequestRaw        []byte
+	ResponseRaw       []byte
+	StartTime         int64
+	State             sql.NullInt64
+	IsFinished        sql.NullInt64
+	Metadata          sql.NullString
+	CreatedAt         sql.NullInt64
+	UpdatedAt         sql.NullInt64
+	ResponseBody      []byte
+	RequestBody       []byte
+	Scheme            string
+	Path              string
+	Proto             string
+	Headers           string
+	Cookies           string
+	QueryParams       string
+	ContentLength     int64
+	RemoteAddr        string
+	RespStatus        sql.NullString
+	RespStatusCode    sql.NullInt64
+	RespProto         sql.NullString
+	RespHeaders       sql.NullString
+	RespContentLength sql.NullInt64
 }
 
 type Session struct {
