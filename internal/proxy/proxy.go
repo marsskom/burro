@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"gitlab.com/marsskom/burro/internal/cert"
 	"gitlab.com/marsskom/burro/internal/model"
 	"gitlab.com/marsskom/burro/internal/plugin"
 )
@@ -20,6 +21,8 @@ type Proxy struct {
 
 	caCert *x509.Certificate
 	caKey  *rsa.PrivateKey
+
+	clientCertCache *cert.CertCache
 }
 
 func NewProxy(
@@ -51,6 +54,8 @@ func NewProxy(
 
 		caCert: caCert,
 		caKey:  caKey,
+
+		clientCertCache: cert.NewCertCache(),
 	}
 }
 
