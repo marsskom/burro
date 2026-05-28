@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"maps"
 	"net/http"
 	"slices"
@@ -206,7 +207,7 @@ func MakeRequestSnapshot(r *http.Request) (*RequestSnapshot, error) {
 	// Restores request body for next request.
 	r.Body = io.NopCloser(bytes.NewReader(body))
 
-	return &RequestSnapshot{
+	snapshot := &RequestSnapshot{
 		Proto:         r.Proto,
 		Host:          r.Host,
 		Method:        r.Method,
@@ -219,7 +220,11 @@ func MakeRequestSnapshot(r *http.Request) (*RequestSnapshot, error) {
 		ContentLength: len(body),
 		RemoteAddr:    r.RemoteAddr,
 		Body:          body,
-	}, nil
+	}
+
+	slog.Debug("Request snapshot was created", "request", snapshot)
+
+	return snapshot, nil
 }
 
 type ResponseSnapshot struct {
@@ -247,12 +252,16 @@ func MakeResponseSnapshot(res *http.Response) (*ResponseSnapshot, error) {
 	// Restores response body.
 	res.Body = io.NopCloser(bytes.NewReader(body))
 
-	return &ResponseSnapshot{
+	snapshot := &ResponseSnapshot{
 		Status:        res.Status,
 		StatusCode:    res.StatusCode,
 		Proto:         res.Proto,
 		Headers:       resHeaders,
 		ContentLength: len(body),
 		Body:          body,
-	}, nil
+	}
+
+	slog.Debug("Response snapshot was created", "response", snapshot)
+
+	return snapshot, nil
 }
