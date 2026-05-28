@@ -58,9 +58,23 @@ func (px *Proxy) handleHTTPS(w http.ResponseWriter, ctx *model.RequestContext) e
 		host = strings.Split(host, ":")[0]
 	}
 
-	fakeCert, err := cert.GenerateHostCertificate(host, px.caCert, px.caKey)
-	if err != nil {
-		return fmt.Errorf("handleHTTPS: cannot generate host certificate: %w", err)
+	cacheKey := cert.CertCacheHostKey(host)
+	cachedCert, ok := px.clientCertCache.Get(cacheKey)
+	var fakeCert *tls.Certificate
+	if !ok {
+		fakeCert, err = cert.GenerateHostCertificate(host, px.caCert, px.caKey)
+		if err != nil {
+			return fmt.Errorf("handleHTTPS: cannot generate host certificate: %w", err)
+		}
+
+		err = px.clientCertCache.Set(cacheKey, &cert.CertCacheItem{
+			Certificate: fakeCert,
+		})
+		if err != nil {
+			return fmt.Errorf("handleHTTPS: cannot add certificate into cache: %w", err)
+		}
+	} else {
+		fakeCert = cachedCert.Certificate
 	}
 
 	tlsConn := tls.Server(clientConn, &tls.Config{

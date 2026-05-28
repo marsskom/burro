@@ -22,15 +22,17 @@ func GenerateHostCertificate(
 		return nil, fmt.Errorf("HostCA: error generate key: %w", err)
 	}
 
+	serial, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+
 	tpl := x509.Certificate{
-		SerialNumber: big.NewInt(time.Now().UnixNano()),
+		SerialNumber: serial,
 		Subject: pkix.Name{
 			CommonName: host,
 		},
 		DNSNames:  []string{host},
-		NotBefore: time.Now(),
+		NotBefore: time.Now().Add(-time.Hour),
 		NotAfter:  time.Now().AddDate(1, 0, 0),
-		KeyUsage:  x509.KeyUsageDigitalSignature,
+		KeyUsage:  x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		ExtKeyUsage: []x509.ExtKeyUsage{
 			x509.ExtKeyUsageServerAuth,
 		},
