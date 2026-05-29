@@ -19,20 +19,6 @@ func NewSessionRepo(q *database.Queries) *SessionRepository {
 	}
 }
 
-func (r *SessionRepository) LoadSession(ctx context.Context, id string) (*model.Session, error) {
-	storedSession, err := r.q.GetSession(ctx, id)
-	if err != nil {
-		return nil, fmt.Errorf("cannot find session '%s' in database: %w", id, err)
-	}
-
-	session, err := mapper.FromStoredSession(storedSession)
-	if err != nil {
-		return nil, fmt.Errorf("cannot convert session data from db: %w", err)
-	}
-
-	return session, nil
-}
-
 func (r *SessionRepository) SaveSession(ctx context.Context, session *model.Session) error {
 	storedSession, err := mapper.ToStoredSession(session)
 	if err != nil {

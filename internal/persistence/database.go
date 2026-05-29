@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"gitlab.com/marsskom/burro/internal/config"
@@ -45,29 +46,71 @@ func IntToBool(i int) bool {
 	return false
 }
 
-func getPathToDB(name string, path string) string {
-	return filepath.Join(path, fmt.Sprintf("%s.sqlite3", string(name)))
+type DBConnection struct {
+	FileName    string
+	Path        string
+	DB          *sql.DB
+	GooseConfig *config.GooseConfig
 }
 
-func LoadDatabase(cfg *config.GooseConfig, name string, path string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite", getPathToDB(name, path))
-	if err != nil {
-		return nil, fmt.Errorf("cannot load database: %w", err)
+func NewConnection(cfg *config.GooseConfig, filename string, path string) *DBConnection {
+	return &DBConnection{
+		FileName:    filename,
+		Path:        path,
+		GooseConfig: cfg,
 	}
-
-	err = runMigrations(cfg, db)
-	if err != nil {
-		return nil, fmt.Errorf("cannot run migration on a new db: %w", err)
-	}
-
-	return db, nil
 }
 
-func CreateDatabase(cfg *config.GooseConfig, name string, path string) (*sql.DB, error) {
-	db, err := LoadDatabase(cfg, name, path)
+func (c *DBConnection) getFullPath() string {
+	return filepath.Join(c.Path, fmt.Sprintf("%s.sqlite3", c.FileName))
+}
+
+func (c *DBConnection) connect() error {
+	db, err := sql.Open("sqlite", c.getFullPath())
 	if err != nil {
-		return nil, fmt.Errorf("cannot create db: %w", err)
+		return fmt.Errorf("cannot open connection to database: %w", err)
 	}
 
-	return db, nil
+	c.DB = db
+	err = runMigrations(c.GooseConfig, c.DB)
+	if err != nil {
+		c.DB.Close()
+
+		return fmt.Errorf("cannot run migration on the db: %w", err)
+	}
+
+	return nil
+}
+
+func (c *DBConnection) Create() error {
+	if _, err := os.Stat(c.getFullPath()); err == nil {
+		return fmt.Errorf("db file already exist")
+	}
+
+	return c.connect()
+}
+
+func (c *DBConnection) Open() error {
+	if _, err := os.Stat(c.getFullPath()); err != nil {
+		return fmt.Errorf("db file doesn't exist: %w", err)
+	}
+
+	return c.connect()
+}
+
+func (c *DBConnection) Close() {
+	if c.DB != nil {
+		c.DB.Close()
+	}
+}
+
+func (c *DBConnection) Remove() error {
+	c.Close()
+
+	err := os.Remove(c.getFullPath())
+	if err != nil {
+		return fmt.Errorf("cannot remove db file: %w", err)
+	}
+
+	return nil
 }

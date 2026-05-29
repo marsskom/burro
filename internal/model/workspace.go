@@ -36,12 +36,17 @@ type Workspace struct {
 	Sessions []*Session
 }
 
-func NewWorkspace() *Workspace {
+func NewWorkspace(name string) *Workspace {
 	return &Workspace{
 		ID:        uuid.NewString(),
+		Name:      WorkspaceName(name),
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
+}
+
+func (w *Workspace) GetName() string {
+	return string(w.Name)
 }
 
 func (w *Workspace) AddSession(session *Session) {

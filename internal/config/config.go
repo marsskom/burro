@@ -24,7 +24,7 @@ type Config struct {
 	Plugins map[string]any `yaml:"plugins"`
 }
 
-func LoadWithFlags(configPath string, proxyFlags ProxyFlags, workspaceFlags WorkspaceFlags) (*Config, error) {
+func LoadWithFlags(configPath string, proxyFlags ProxyFlags) (*Config, error) {
 	cfg, err := Load(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("Config: cannot load config: %w", err)
