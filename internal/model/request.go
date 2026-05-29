@@ -140,13 +140,13 @@ type CookieSnapshot struct {
 	Expires     time.Time
 	MaxAge      int
 	Secure      bool
-	HttpOnly    bool
+	HTTPOnly    bool
 	SameSite    int
 	Partitioned bool
 }
 
 func ExtractCookies(r *http.Request) ([]*CookieSnapshot, error) {
-	cookies := make([]*CookieSnapshot, len(r.Cookies()))
+	cookies := make([]*CookieSnapshot, 0, len(r.Cookies()))
 	for _, c := range r.Cookies() {
 		cookies = append(cookies, &CookieSnapshot{
 			Name:        c.Name,
@@ -157,7 +157,7 @@ func ExtractCookies(r *http.Request) ([]*CookieSnapshot, error) {
 			Expires:     c.Expires,
 			MaxAge:      c.MaxAge,
 			Secure:      c.Secure,
-			HttpOnly:    c.HttpOnly,
+			HTTPOnly:    c.HttpOnly,
 			SameSite:    int(c.SameSite),
 			Partitioned: c.Partitioned,
 		})
@@ -184,12 +184,20 @@ type RequestSnapshot struct {
 func MakeRequestSnapshot(r *http.Request) (*RequestSnapshot, error) {
 	queryParams := make(map[string][]string, len(r.URL.Query()))
 	for k, v := range r.URL.Query() {
+		if k == "" {
+			continue
+		}
+
 		queryParams[k] = append([]string(nil), v...)
 	}
 
 	reqHeaders := r.Header.Clone()
 	headers := make(map[string][]string, len(reqHeaders))
 	for k, v := range reqHeaders {
+		if k == "" {
+			continue
+		}
+
 		headers[k] = append([]string(nil), v...)
 	}
 
@@ -212,7 +220,7 @@ func MakeRequestSnapshot(r *http.Request) (*RequestSnapshot, error) {
 		Host:          r.Host,
 		Method:        r.Method,
 		Scheme:        r.URL.Scheme,
-		URL:           r.URL.String(),
+		URL:           BuildAbsoluteURL(r),
 		Path:          r.URL.Path,
 		QueryParams:   queryParams,
 		Headers:       headers,
@@ -227,6 +235,24 @@ func MakeRequestSnapshot(r *http.Request) (*RequestSnapshot, error) {
 	return snapshot, nil
 }
 
+func BuildAbsoluteURL(r *http.Request) string {
+	u := *r.URL
+
+	if u.Scheme == "" {
+		if r.TLS != nil {
+			u.Scheme = "https"
+		} else {
+			u.Scheme = "http"
+		}
+	}
+
+	if u.Host == "" {
+		u.Host = r.Host
+	}
+
+	return u.String()
+}
+
 type ResponseSnapshot struct {
 	Status        string
 	StatusCode    int
@@ -234,9 +260,14 @@ type ResponseSnapshot struct {
 	Headers       map[string][]string
 	ContentLength int
 	Body          []byte
+
+	TimeDNS     time.Duration
+	TimeConnect time.Duration
+	TimeSSL     time.Duration
+	TimeWait    time.Duration
 }
 
-func MakeResponseSnapshot(res *http.Response) (*ResponseSnapshot, error) {
+func MakeResponseSnapshot(res *http.Response, t *Timings) (*ResponseSnapshot, error) {
 	resHeaders := res.Header.Clone()
 	headers := make(map[string][]string, len(resHeaders))
 	for k, v := range resHeaders {
@@ -259,6 +290,11 @@ func MakeResponseSnapshot(res *http.Response) (*ResponseSnapshot, error) {
 		Headers:       resHeaders,
 		ContentLength: len(body),
 		Body:          body,
+
+		TimeDNS:     t.DNSEnd.Sub(t.DNSStart),
+		TimeConnect: t.ConnectEnd.Sub(t.ConnectStart),
+		TimeSSL:     t.TLSEnd.Sub(t.TLSStart),
+		TimeWait:    t.FirstByte.Sub(t.WroteRequest),
 	}
 
 	slog.Debug("Response snapshot was created", "response", snapshot)

@@ -12,3 +12,7 @@ plugins:
     priority: 10
     whitelist: ./data/policy/whitelist.txt
     blacklist: ./data/policy/blacklist.txt
+
+  harexport:
+    file: "./bin/%session%-%datetime%.har"
+    override: true

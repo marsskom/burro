@@ -7,8 +7,13 @@ type PriorityPlugin interface {
 }
 
 func getPriority(p Plugin) int {
+	var priority int
 	if pr, ok := p.(PriorityPlugin); ok {
-		return pr.Priority()
+		priority = pr.Priority()
+	}
+
+	if priority > 0 {
+		return priority
 	}
 
 	return DefaultPriority

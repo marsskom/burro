@@ -62,7 +62,7 @@ func (px *Proxy) handleRequest(ctx *model.RequestContext, r *http.Request) error
 		return fmt.Errorf("HandleRequest: error on proceed request: %w", err)
 	}
 
-	resSnapshot, err := model.MakeResponseSnapshot(res)
+	resSnapshot, err := model.MakeResponseSnapshot(res, px.traceTimings)
 	if err != nil {
 		return fmt.Errorf("HandleRequest: error on response snapshot creation: %w", err)
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/httptrace"
 	"time"
 
 	"gitlab.com/marsskom/burro/internal/cert"
@@ -17,7 +18,8 @@ type Proxy struct {
 	plugins *plugin.Manager
 	session *model.Session
 
-	client *http.Client
+	client       *http.Client
+	traceTimings *model.Timings
 
 	caCert *x509.Certificate
 	caKey  *rsa.PrivateKey
@@ -51,6 +53,7 @@ func NewProxy(
 				IdleConnTimeout:     90 * time.Second,
 			},
 		},
+		traceTimings: &model.Timings{},
 
 		caCert: caCert,
 		caKey:  caKey,
@@ -60,7 +63,9 @@ func NewProxy(
 }
 
 func (px *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := model.NewCtx(px.session, r)
+	ctx := model.NewCtx(px.session, r.WithContext(
+		httptrace.WithClientTrace(r.Context(), px.traceTimings.AttachTrace()),
+	))
 	px.session.AddRequest(ctx)
 
 	defer func() {
