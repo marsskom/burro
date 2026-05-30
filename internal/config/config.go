@@ -11,8 +11,14 @@ import (
 
 var userHomeDir = os.UserHomeDir
 
+type CorePluginsConfig struct {
+	Dir    string `yaml:"dir"`
+	Config string `yaml:"config"`
+}
+
 type CoreConfig struct {
-	LogLevel string `yaml:"log_level"`
+	LogLevel string            `yaml:"log_level"`
+	Plugins  CorePluginsConfig `yaml:"plugins"`
 }
 
 type ProxyConfig struct {
@@ -40,7 +46,7 @@ func LoadWithFlags(configPath string, proxyFlags ProxyFlags) (*Config, error) {
 func Load(configPath string) (*Config, error) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
-		return nil, fmt.Errorf("Config: caanot read config file: %w", err)
+		return nil, fmt.Errorf("Config: cannot read config file: %w", err)
 	}
 
 	var cfg Config

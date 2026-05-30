@@ -1,5 +1,8 @@
 core:
   log_level: debug
+  plugins:
+    dir: "./plugins"
+    config: "config.yml"
 
 proxy:
   port: 8080
@@ -8,10 +11,7 @@ proxy:
 plugins:
   logger:
 
-  policy:
-    priority: 10
-    whitelist: ./data/policy/whitelist.txt
-    blacklist: ./data/policy/blacklist.txt
+  policy: # separate config
 
   harexport:
     file: "./bin/%session%-%datetime%.har"
