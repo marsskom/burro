@@ -19,10 +19,13 @@ type LoggerConfig struct {
 }
 
 type LoggerPlugin struct {
+	logger *slog.Logger
 }
 
 func New() *LoggerPlugin {
-	return &LoggerPlugin{}
+	return &LoggerPlugin{
+		logger: slog.Default(),
+	}
 }
 
 func (p *LoggerPlugin) Name() string {
@@ -34,36 +37,36 @@ func (p *LoggerPlugin) Init(cfg any) error {
 }
 
 func (p *LoggerPlugin) OnConnect(ctx *model.RequestContext) error {
-	print(slog.LevelDebug, "Trying to connect", ctx)
+	p.log(slog.LevelDebug, "Trying to connect", ctx)
 
 	return nil
 }
 
 func (p *LoggerPlugin) OnRequest(ctx *model.RequestContext) error {
-	print(slog.LevelInfo, "Request received", ctx)
+	p.log(slog.LevelInfo, "Request received", ctx)
 
 	return nil
 }
 
 func (p *LoggerPlugin) OnResponse(ctx *model.RequestContext) error {
-	print(slog.LevelInfo, "Response received", ctx)
+	p.log(slog.LevelInfo, "Response received", ctx)
 
 	return nil
 }
 
 func (p *LoggerPlugin) OnError(ctx *model.RequestContext, err error) error {
-	print(slog.LevelError, fmt.Sprintf("Error occurred: %v", err), ctx)
+	p.log(slog.LevelError, fmt.Sprintf("Error occurred: %v", err), ctx)
 
 	return nil
 }
 
 func (p *LoggerPlugin) OnClose(ctx *model.RequestContext) error {
-	print(slog.LevelDebug, "Connection closed", ctx)
+	p.log(slog.LevelDebug, "Connection closed", ctx)
 
 	return nil
 }
 
-func print(level slog.Level, msg string, ctx *model.RequestContext) {
+func (p *LoggerPlugin) log(level slog.Level, msg string, ctx *model.RequestContext) {
 	args := []any{
 		"ID", ctx.ID,
 		"StartTime", ctx.StartTime,
@@ -87,5 +90,5 @@ func print(level slog.Level, msg string, ctx *model.RequestContext) {
 		)
 	}
 
-	slog.Log(context.Background(), level, msg, args...)
+	p.logger.Log(context.Background(), level, msg, args...)
 }

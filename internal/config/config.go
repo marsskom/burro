@@ -9,6 +9,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+var userHomeDir = os.UserHomeDir
+
 type CoreConfig struct {
 	LogLevel string `yaml:"log_level"`
 }
@@ -58,7 +60,11 @@ func ResolvePath(explicit string) (string, error) {
 		return env, nil
 	}
 
-	home, _ := os.UserHomeDir()
+	home, err := userHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve config path error on get user home dir: %w", err)
+	}
+
 	defaultPath := filepath.Join(home, ".burro", "config.yml")
 
 	if _, err := os.Stat(defaultPath); err == nil {

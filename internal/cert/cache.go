@@ -9,18 +9,22 @@ import (
 	"sync"
 )
 
-type CertCacheHostKey string
+type CertCacheHostKey struct {
+	value      string
+	normalized string
+}
 
-func (ck CertCacheHostKey) Normalize() CertCacheHostKey {
-	slog.Debug("Normalize cert cache host key", "host", ck)
+func NewCertCacheHostKey(host string) CertCacheHostKey {
+	n := strings.ToLower(host)
 
-	host := strings.ToLower(string(ck))
-
-	if h, _, err := net.SplitHostPort(host); err == nil {
-		return CertCacheHostKey(h)
+	if h, _, err := net.SplitHostPort(n); err == nil {
+		n = h
 	}
 
-	return CertCacheHostKey(host)
+	return CertCacheHostKey{
+		value:      host,
+		normalized: n,
+	}
 }
 
 type CertCacheItem struct {
@@ -28,13 +32,13 @@ type CertCacheItem struct {
 }
 
 type CertCache struct {
-	items map[CertCacheHostKey]*CertCacheItem
+	items map[string]*CertCacheItem
 	mu    sync.RWMutex
 }
 
 func NewCertCache() *CertCache {
 	return &CertCache{
-		items: make(map[CertCacheHostKey]*CertCacheItem),
+		items: make(map[string]*CertCacheItem),
 	}
 }
 
@@ -42,15 +46,13 @@ func (c *CertCache) Set(host CertCacheHostKey, item *CertCacheItem) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	host = host.Normalize()
-
-	if _, ok := c.items[host]; ok {
-		return fmt.Errorf("cache certificate item with host '%s' already exist", host)
+	if _, ok := c.items[host.normalized]; ok {
+		return fmt.Errorf("cache certificate item with host '%s' already exist", host.normalized)
 	}
 
-	c.items[host] = item
+	c.items[host.normalized] = item
 
-	slog.Debug("CertCache: set for a host", "host", host)
+	slog.Debug("CertCache: set for a host", "host", host.normalized)
 
 	return nil
 }
@@ -59,11 +61,9 @@ func (c *CertCache) Get(host CertCacheHostKey) (*CertCacheItem, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	host = host.Normalize()
+	item, ok := c.items[host.normalized]
 
-	item, ok := c.items[host]
-
-	slog.Debug("CertCache: get for a host", "host", host, "ok", ok)
+	slog.Debug("CertCache: get for a host", "host", host.normalized, "ok", ok)
 
 	return item, ok
 }
@@ -72,11 +72,9 @@ func (c *CertCache) Delete(host CertCacheHostKey) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	host = host.Normalize()
+	slog.Debug("CertCache: delete for a host", "host", host.normalized)
 
-	slog.Debug("CertCache: delete for a host", "host", host)
-
-	delete(c.items, host)
+	delete(c.items, host.normalized)
 }
 
 func (c *CertCache) Clear() {
@@ -85,5 +83,5 @@ func (c *CertCache) Clear() {
 
 	slog.Debug("CertCache: clear")
 
-	c.items = make(map[CertCacheHostKey]*CertCacheItem)
+	c.items = make(map[string]*CertCacheItem)
 }

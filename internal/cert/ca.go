@@ -22,12 +22,14 @@ func GenerateCA(certPath, keyPath string) error {
 		return fmt.Errorf("GenerateCA: error on key generation: %w", err)
 	}
 
+	serial, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+
 	tpl := x509.Certificate{
-		SerialNumber: big.NewInt(1),
+		SerialNumber: serial,
 		Subject: pkix.Name{
 			CommonName: "Burro CA",
 		},
-		NotBefore:             time.Now(),
+		NotBefore:             time.Now().Add(-time.Hour),
 		NotAfter:              time.Now().AddDate(10, 0, 0),
 		IsCA:                  true,
 		KeyUsage:              x509.KeyUsageCRLSign | x509.KeyUsageCertSign,
@@ -91,6 +93,9 @@ func LoadCA(certPath, keyPath string) (*x509.Certificate, *rsa.PrivateKey, error
 
 	certBlock, _ := pem.Decode(certPEM)
 	keyBlock, _ := pem.Decode(keyPEM)
+	if certBlock == nil || keyBlock == nil {
+		return nil, nil, fmt.Errorf("LoadCA: invalid PEM format")
+	}
 
 	caCert, err := x509.ParseCertificate(certBlock.Bytes)
 	if err != nil {
