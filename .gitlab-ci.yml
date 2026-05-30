@@ -6,14 +6,71 @@
 # Note that environment variables can be set in several places
 # See https://docs.gitlab.com/ci/variables/#cicd-variable-precedence
 stages:
-- test
-- secret-detection
+  - test
+  - secret-detection
+  - build
+  - release
+
+variables:
+  SECRET_DETECTION_ENABLED: "true"
+
+# Security.
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
+
 sast:
   stage: test
-include:
-- template: Security/SAST.gitlab-ci.yml
-- template: Security/Secret-Detection.gitlab-ci.yml
-variables:
-  SECRET_DETECTION_ENABLED: 'true'
+
 secret_detection:
   stage: secret-detection
+
+# Test Stage.
+test:
+  image: golang:1.26
+  stage: test
+  script:
+    - go test ./...
+
+# Build Stage (tags only).
+build:
+  image: golang:1.26
+  stage: build
+  needs: ["test"]
+  rules:
+    - if: $CI_COMMIT_TAG
+
+  script:
+    - chmod +x scripts/build.sh
+    - VERSION=$CI_COMMIT_TAG ./scripts/build.sh
+
+  artifacts:
+    paths:
+      - dist/
+
+# Release stage.
+release:
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  stage: release
+  needs: ["build"]
+
+  rules:
+    - if: $CI_COMMIT_TAG
+
+  script:
+    - echo "Creating GitLab release $CI_COMMIT_TAG"
+
+  release:
+    tag_name: "$CI_COMMIT_TAG"
+    name: "Burro $CI_COMMIT_TAG"
+    description: "Auto-release for $CI_COMMIT_TAG"
+    assets:
+      links:
+        - name: "Linux AMD64"
+          url: "$CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_TAG/raw/dist/burro-${CI_COMMIT_TAG}-linux-amd64.tar.gz?job=build"
+        - name: "Linux ARM64"
+          url: "$CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_TAG/raw/dist/burro-${CI_COMMIT_TAG}-linux-arm64.tar.gz?job=build"
+        - name: "macOS ARM64"
+          url: "$CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_TAG/raw/dist/burro-${CI_COMMIT_TAG}-darwin-arm64.tar.gz?job=build"
+        - name: "Checksums"
+          url: "$CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_TAG/raw/dist/checksums.txt?job=build"
