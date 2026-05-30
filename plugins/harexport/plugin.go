@@ -37,7 +37,7 @@ type HARExportPlugin struct {
 
 	entries map[string]*HAREntry
 
-	mu sync.Mutex
+	mu sync.RWMutex
 }
 
 func New() *HARExportPlugin {
@@ -75,6 +75,13 @@ func (p *HARExportPlugin) Init(cfg any) error {
 }
 
 func (p *HARExportPlugin) Flush(opts *export.FileNameVars) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	if len(p.entries) == 0 {
+		return nil
+	}
+
 	if strings.TrimSpace(opts.Session) == "" && strings.Contains(p.outputFile, "%session%") {
 		return fmt.Errorf("HAR cannot save data into file since provided session is empty but filename expects it: '%s'", p.outputFile)
 	}

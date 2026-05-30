@@ -2,7 +2,7 @@ package cli
 
 import (
 	"fmt"
-	"os"
+	"io"
 	"strings"
 )
 
@@ -13,20 +13,26 @@ const (
 	ChoiceNo  ConfirmChoice = "n"
 )
 
-func Confirm(msg string, defaultChoice ConfirmChoice) bool {
+func Confirm(cliIO IO, msg string, defaultChoice ConfirmChoice) (bool, error) {
 	if defaultChoice == ChoiceYes {
-		fmt.Printf("%s [Y/n]: ", msg)
+		fmt.Fprint(cliIO.Out, msg+" [Y/n]: ")
 	} else {
-		fmt.Printf("%s [y/N]: ", msg)
+		fmt.Fprint(cliIO.Out, msg+" [y/N]: ")
 	}
 
-	var input string
-	fmt.Fscanln(os.Stdin, &input)
+	line, err := cliIO.In.ReadString('\n')
+	if err != nil {
+		if err == io.EOF && len(line) == 0 {
+			return false, io.EOF
+		}
 
-	input = strings.ToLower(strings.TrimSpace(input))
+		return false, err
+	}
+
+	input := strings.ToLower(strings.TrimSpace(line))
 	if input == "" {
 		input = string(defaultChoice)
 	}
 
-	return input == string(ChoiceYes) || input == "yes"
+	return input == string(ChoiceYes) || input == "yes", nil
 }

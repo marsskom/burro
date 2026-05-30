@@ -84,10 +84,8 @@ func NewCtxFromParent(parent *RequestContext, r *http.Request) *RequestContext {
 
 	ctx, cancel := context.WithCancel(parent.Context)
 
-	var mtdata map[string]any
-	if parent.Metadata != nil {
-		maps.Copy(mtdata, parent.Metadata)
-	}
+	mtdata := make(map[string]any)
+	maps.Copy(mtdata, parent.Metadata)
 
 	return &RequestContext{
 		ID:        uuid.NewString(),
@@ -287,7 +285,7 @@ func MakeResponseSnapshot(res *http.Response, t *Timings) (*ResponseSnapshot, er
 		Status:        res.Status,
 		StatusCode:    res.StatusCode,
 		Proto:         res.Proto,
-		Headers:       resHeaders,
+		Headers:       headers,
 		ContentLength: len(body),
 		Body:          body,
 

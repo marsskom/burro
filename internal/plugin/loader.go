@@ -20,7 +20,7 @@ func LoadPlugins(cfg *config.Config, pm *Manager) error {
 
 		p := factory()
 		if err := p.Init(pluginCfg); err != nil {
-			return fmt.Errorf("LoadPlugins: cannot init plugin: %w", err)
+			return fmt.Errorf("cannot init plugin: %w", err)
 		}
 
 		pm.Register(p)

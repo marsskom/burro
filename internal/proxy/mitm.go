@@ -58,7 +58,7 @@ func (px *Proxy) handleHTTPS(w http.ResponseWriter, ctx *model.RequestContext) e
 		host = strings.Split(host, ":")[0]
 	}
 
-	cacheKey := cert.CertCacheHostKey(host)
+	cacheKey := cert.NewCertCacheHostKey(host)
 	cachedCert, ok := px.clientCertCache.Get(cacheKey)
 	var fakeCert *tls.Certificate
 	if !ok {

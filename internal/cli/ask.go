@@ -2,27 +2,37 @@ package cli
 
 import (
 	"fmt"
-	"os"
+	"io"
 	"strings"
 )
 
-func Ask(msg string) string {
-	fmt.Printf("%s ", msg)
+func Ask(cliIO IO, msg string) (string, error) {
+	fmt.Fprint(cliIO.Out, msg+" ")
 
-	var input string
-	fmt.Fscanln(os.Stdin, &input)
+	line, err := cliIO.In.ReadString('\n')
+	if err != nil {
+		if err == io.EOF && len(line) > 0 {
+			return strings.TrimSpace(line), nil
+		}
+		return "", err
+	}
 
-	return strings.TrimSpace(input)
+	return strings.TrimSpace(line), nil
 }
 
-func AskWithValidator(msg string, validator func(input string) error) string {
+func AskWithValidator(cliIO IO, msg string, validator func(input string) error) (string, error) {
 	for {
-		input := Ask(msg)
+		input, err := Ask(cliIO, msg)
+		if err != nil {
+			return "", err
+		}
+
 		if err := validator(input); err != nil {
-			fmt.Println("Error:", err)
+			fmt.Fprint(cliIO.Out, "Error: ", err, "\n")
+
 			continue
 		}
 
-		return input
+		return input, nil
 	}
 }

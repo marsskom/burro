@@ -15,5 +15,5 @@ UPDATE workspace SET updated_at = ? WHERE id = ?;
 -- name: UpsertWorkspace :exec
 INSERT INTO workspace (id, name, created_at, updated_at)
 VALUES (?, ?, ?, ?)
-ON CONFLICT(id) DO UPDATE SET
+ON CONFLICT(name) DO UPDATE SET
 updated_at = excluded.updated_at;
