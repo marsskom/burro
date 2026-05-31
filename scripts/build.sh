@@ -24,6 +24,8 @@ for t in "${TARGETS[@]}"; do
 
   mkdir -p package
 
+  go generate ./tools/plugin-gen
+
   CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH \
     go build -ldflags="-s -w -X main.version=${VERSION}" \
     -o package/burro ./cmd/burro
