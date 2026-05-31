@@ -1,0 +1,4 @@
+priority: 10
+# All paths is relative to `runtime/plugins/policy/` directory
+whitelist: ./data/whitelist.txt
+blacklist: ./data/blacklist.txt

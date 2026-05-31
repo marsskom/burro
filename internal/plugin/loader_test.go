@@ -10,12 +10,12 @@ import (
 )
 
 func TestResolvePluginConfig_NotFound(t *testing.T) {
-	cfg := &config.CorePluginsConfig{
+	cfg := config.CorePluginsConfig{
 		Dir:    t.TempDir(),
 		Config: "config.yml",
 	}
 
-	got, err := resolvePluginConfig(cfg, "policy")
+	got, err := resolvePluginConfig("", cfg, "policy")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -25,7 +25,7 @@ func TestResolvePluginConfig_NotFound(t *testing.T) {
 	}
 }
 
-func TestResolvePluginConfig_Loaded(t *testing.T) {
+func TestResolvePluginConfig_LoadedWithoutPluginsDir(t *testing.T) {
 	dir := t.TempDir()
 
 	expected := filepath.Join(dir, "policy", "config.yml")
@@ -37,12 +37,48 @@ func TestResolvePluginConfig_Loaded(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg := &config.CorePluginsConfig{
-		Dir:    dir,
+	cfg := config.CorePluginsConfig{
+		Dir:    "",
 		Config: "config.yml",
 	}
 
-	got, err := resolvePluginConfig(cfg, "policy")
+	got, err := resolvePluginConfig(dir, cfg, "policy")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	m, ok := got.(map[string]any)
+	if !ok {
+		t.Fatalf("expect ok as true, got %v", ok)
+	}
+
+	if m["priority"] != 10 {
+		t.Fatalf("expect priority equals to 10, got %v", m["priority"])
+	}
+
+	if m["enabled"] != true {
+		t.Fatalf("expect enabled - true, got %v", m["enabled"])
+	}
+}
+
+func TestResolvePluginConfig_Loaded(t *testing.T) {
+	dir := t.TempDir()
+
+	expected := filepath.Join(dir, "plugins", "policy", "config.yml")
+	if err := os.MkdirAll(filepath.Dir(expected), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(expected, []byte("priority: 10\nenabled: true\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config.CorePluginsConfig{
+		Dir:    "plugins",
+		Config: "config.yml",
+	}
+
+	got, err := resolvePluginConfig(dir, cfg, "policy")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -73,12 +109,12 @@ func TestResolvePluginConfig_InvalidYAML(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg := &config.CorePluginsConfig{
-		Dir:    dir,
+	cfg := config.CorePluginsConfig{
+		Dir:    "",
 		Config: "config.yml",
 	}
 
-	_, err := resolvePluginConfig(cfg, "policy")
+	_, err := resolvePluginConfig(dir, cfg, "policy")
 	if err == nil {
 		t.Fatalf("expect error, got nil")
 	}

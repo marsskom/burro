@@ -1,7 +1,6 @@
 package config
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -71,12 +70,47 @@ proxy:
 	}
 }
 
-func TestResolvePath(t *testing.T) {
+func TestResolveHome(t *testing.T) {
 	t.Run("explicit wins", func(t *testing.T) {
-		got, err := ResolvePath("/tmp/config.yml")
+		got := ResolveHome("/tmp")
+
+		if got != "/tmp" {
+			t.Fatalf("expected explicit path, got %s", got)
+		}
+	})
+
+	t.Run("env wins over default", func(t *testing.T) {
+		os.Setenv("BURRO_HOME", "/env")
+		defer os.Unsetenv("BURRO_HOME")
+
+		got := ResolveHome("")
+
+		if got != "/env" {
+			t.Fatalf("expected env path, got %s", got)
+		}
+	})
+
+	t.Run("fallback to ./runtime", func(t *testing.T) {
+		got := ResolveHome("")
+
+		if got != "./runtime" {
+			t.Fatalf("expected ./runtime, got %s", got)
+		}
+	})
+}
+
+func TestGetConfigPath(t *testing.T) {
+	t.Run("explicit wins", func(t *testing.T) {
+		paths := &Paths{
+			Home: "~",
+		}
+
+		got, err := paths.GetConfigPath("/tmp/config.yml")
+
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if got != "/tmp/config.yml" {
 			t.Fatalf("expected explicit path, got %s", got)
 		}
@@ -86,7 +120,12 @@ func TestResolvePath(t *testing.T) {
 		os.Setenv("BURRO_CONFIG", "/env/config.yml")
 		defer os.Unsetenv("BURRO_CONFIG")
 
-		got, err := ResolvePath("")
+		paths := &Paths{
+			Home: "~",
+		}
+
+		got, err := paths.GetConfigPath("")
+
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -96,27 +135,20 @@ func TestResolvePath(t *testing.T) {
 		}
 	})
 
-	t.Run("fallback to ~/.burro/config.yml", func(t *testing.T) {
+	t.Run("fallback to home directory / config.yml", func(t *testing.T) {
 		dir := t.TempDir()
 
-		// Fakes home directory func.
-		old := userHomeDir
-		defer func() { userHomeDir = old }()
-
-		userHomeDir = func() (string, error) {
-			return dir, nil
+		paths := &Paths{
+			Home: dir,
 		}
 
-		expected := filepath.Join(dir, ".burro", "config.yml")
-		if err := os.MkdirAll(filepath.Dir(expected), 0755); err != nil {
-			t.Fatal(err)
-		}
+		expected := filepath.Join(paths.Home, "config.yml")
 
 		if err := os.WriteFile(expected, []byte("core:\n  log_level: debug"), 0644); err != nil {
 			t.Fatal(err)
 		}
 
-		got, err := ResolvePath("")
+		got, err := paths.GetConfigPath("")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -126,93 +158,14 @@ func TestResolvePath(t *testing.T) {
 		}
 	})
 
-	t.Run("fallback to ./config.yml", func(t *testing.T) {
-		dir := t.TempDir()
-
-		old := userHomeDir
-		defer func() { userHomeDir = old }()
-
-		userHomeDir = func() (string, error) {
-			return dir, nil
-		}
-
-		// Ensures ~/.burro does NOT exist.
-		homeCfg := filepath.Join(dir, ".burro", "config.yml")
-		_ = os.RemoveAll(filepath.Dir(homeCfg))
-
-		// Creates local config.
-		local := filepath.Join(dir, "config.yml")
-		if err := os.WriteFile(local, []byte("core:\n  log_level: debug"), 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		// Changes working dir.
-		oldWd, _ := os.Getwd()
-		defer os.Chdir(oldWd)
-
-		if err := os.Chdir(dir); err != nil {
-			t.Fatal(err)
-		}
-
-		got, err := ResolvePath("")
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if got != "./config.yml" {
-			t.Fatalf("expected ./config.yml, got %s", got)
-		}
-	})
-
-	t.Run("home directory doesn't exist", func(t *testing.T) {
-		dir := t.TempDir()
-
-		old := userHomeDir
-		defer func() { userHomeDir = old }()
-
-		userHomeDir = func() (string, error) {
-			return "", errors.New("doesn't exist")
-		}
-
-		expected := filepath.Join(dir, ".burro", "config.yml")
-		if err := os.MkdirAll(filepath.Dir(expected), 0755); err != nil {
-			t.Fatal(err)
-		}
-
-		if err := os.WriteFile(expected, []byte("core:\n  log_level: debug"), 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		oldWd, _ := os.Getwd()
-		defer os.Chdir(oldWd)
-
-		_ = os.Chdir(dir)
-
-		_, err := ResolvePath("")
-		if err == nil {
-			t.Fatal("expected error, got nil")
-		}
-	})
-
 	t.Run("not found", func(t *testing.T) {
 		dir := t.TempDir()
 
-		old := userHomeDir
-		defer func() { userHomeDir = old }()
-
-		userHomeDir = func() (string, error) {
-			return dir, nil
+		paths := &Paths{
+			Home: dir,
 		}
 
-		// Ensures nothing exists.
-		_ = os.RemoveAll(filepath.Join(dir, ".burro"))
-
-		oldWd, _ := os.Getwd()
-		defer os.Chdir(oldWd)
-
-		_ = os.Chdir(dir)
-
-		_, err := ResolvePath("")
+		_, err := paths.GetConfigPath("")
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}

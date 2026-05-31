@@ -1,18 +1,19 @@
 package logger
 
 import (
-	"log/slog"
 	"net/http"
 	"strings"
 	"testing"
 
 	"gitlab.com/marsskom/burro/internal/model"
+	"gitlab.com/marsskom/burro/internal/testutils"
 )
 
 func TestLogger_OnRequest(t *testing.T) {
-	buf := captureLogs(t)
+	runtime := testutils.NewForPlugin("")
 
 	p := New()
+	p.Init(runtime, map[string]interface{}{})
 
 	req, _ := http.NewRequest("GET", "http://example.com/test", nil)
 
@@ -26,21 +27,26 @@ func TestLogger_OnRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	out := buf.String()
-
-	if !strings.Contains(out, "Request received") {
-		t.Fatalf("expected log output, got: %s", out)
+	logger, _ := runtime.Log().(*testutils.MemoryLogger)
+	if len(logger.Messages["info"]) != 1 {
+		t.Fatalf("expected 1 info message, got: %d", len(logger.Messages["info"]))
 	}
 
-	if !strings.Contains(out, "req-1") {
+	message := logger.Messages["info"][0]
+	if !strings.Contains(message, "Request received") {
+		t.Fatalf("expected log output, got: %s", message)
+	}
+
+	if !strings.Contains(message, "req-1") {
 		t.Fatalf("expected request ID in log")
 	}
 }
 
 func TestLogger_OnError(t *testing.T) {
-	buf := captureLogs(t)
+	runtime := testutils.NewForPlugin("")
 
 	p := New()
+	p.Init(runtime, map[string]interface{}{})
 
 	ctx := &model.RequestContext{
 		ID: "err-1",
@@ -48,19 +54,27 @@ func TestLogger_OnError(t *testing.T) {
 
 	_ = p.OnError(ctx, http.ErrAbortHandler)
 
-	out := buf.String()
+	logger, _ := runtime.Log().(*testutils.MemoryLogger)
+	if len(logger.Messages["error"]) != 1 {
+		t.Fatalf("expected 1 error message, got: %d", len(logger.Messages["error"]))
+	}
 
-	if !strings.Contains(out, "Error occurred") {
+	message := logger.Messages["error"][0]
+
+	if !strings.Contains(message, "Error occurred") {
 		t.Fatal("missing error log message")
 	}
 
-	if !strings.Contains(out, "err-1") {
+	if !strings.Contains(message, "err-1") {
 		t.Fatal("missing context ID")
 	}
 }
 
 func TestLogger_NilFieldsSafety(t *testing.T) {
+	runtime := testutils.NewForPlugin("")
+
 	p := New()
+	p.Init(runtime, map[string]interface{}{})
 
 	ctx := &model.RequestContext{
 		ID: "nil-test",
@@ -75,9 +89,10 @@ func TestLogger_NilFieldsSafety(t *testing.T) {
 }
 
 func TestLogger_ResponseContextIncluded(t *testing.T) {
-	buf := captureLogs(t)
+	runtime := testutils.NewForPlugin("")
 
 	p := New()
+	p.Init(runtime, map[string]interface{}{})
 
 	ctx := &model.RequestContext{
 		ID: "resp-1",
@@ -90,21 +105,27 @@ func TestLogger_ResponseContextIncluded(t *testing.T) {
 
 	_ = p.OnResponse(ctx)
 
-	out := buf.String()
+	logger, _ := runtime.Log().(*testutils.MemoryLogger)
+	if len(logger.Messages["info"]) != 1 {
+		t.Fatalf("expected 1 info message, got: %d", len(logger.Messages["info"]))
+	}
 
-	if !strings.Contains(out, "Response received") {
+	message := logger.Messages["info"][0]
+
+	if !strings.Contains(message, "Response received") {
 		t.Fatal("missing response log")
 	}
 
-	if !strings.Contains(out, "200") {
+	if !strings.Contains(message, "200") {
 		t.Fatal("missing status code in log output")
 	}
 }
 
 func TestLogger_MetadataSafety(t *testing.T) {
-	buf := captureLogs(t)
+	runtime := testutils.NewForPlugin("")
 
 	p := New()
+	p.Init(runtime, map[string]interface{}{})
 
 	ctx := &model.RequestContext{
 		ID: "meta-1",
@@ -115,27 +136,18 @@ func TestLogger_MetadataSafety(t *testing.T) {
 
 	_ = p.OnRequest(ctx)
 
-	out := buf.String()
+	logger, _ := runtime.Log().(*testutils.MemoryLogger)
+	if len(logger.Messages["info"]) != 1 {
+		t.Fatalf("expected 1 info message, got: %d", len(logger.Messages["info"]))
+	}
 
-	if !strings.Contains(out, "meta-1") {
+	message := logger.Messages["info"][0]
+
+	if !strings.Contains(message, "meta-1") {
 		t.Fatal("missing ID in log")
 	}
 
-	if !strings.Contains(out, "user") {
+	if !strings.Contains(message, "user") {
 		t.Fatal("missing metadata in log")
 	}
-}
-
-func captureLogs(t *testing.T) *strings.Builder {
-	t.Helper()
-
-	var buf strings.Builder
-
-	handler := slog.NewTextHandler(&buf, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	})
-
-	slog.SetDefault(slog.New(handler))
-
-	return &buf
 }

@@ -4,16 +4,17 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
+	"github.com/spf13/cobra"
 	"gitlab.com/marsskom/burro/internal/cert"
 	"gitlab.com/marsskom/burro/internal/cli"
 	"gitlab.com/marsskom/burro/internal/config"
@@ -30,33 +31,55 @@ import (
 	_ "gitlab.com/marsskom/burro/plugins/registry"
 )
 
-func main() {
-	if err := run(); err != nil {
-		slog.Error("Error has occured", "err", err)
-		os.Exit(1)
-	}
+var wf config.WorkspaceFlags
+var pf config.ProxyFlags
 
-	os.Exit(0)
+var proxyCmd = &cobra.Command{
+	Use:   "proxy",
+	Short: "Run Burro proxy",
+	Run: func(cmd *cobra.Command, args []string) {
+		run()
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(proxyCmd)
+
+	proxyCmd.Flags().BoolVarP(
+		&wf.Interactive,
+		"interactive",
+		"i",
+		false,
+		"interactive flag, false by default",
+	)
+	proxyCmd.Flags().StringVarP(
+		&wf.Workspace,
+		"workspace",
+		"w",
+		"",
+		"workspace to load, creates new in memory on empty",
+	)
+	proxyCmd.Flags().IntVarP(
+		&pf.Port,
+		"port",
+		"p",
+		0,
+		"proxy port",
+	)
 }
 
 func run() error {
-	cfg, wf, err := initConfig()
+	paths, cfg, err := initConfig(pf)
 	if err != nil {
 		return err
 	}
 
 	coreLogger.SetDefault(cfg.Core)
 
-	// Goose Config.
-	gc, err := config.NewGooseConfig()
-	if err != nil {
-		return err
-	}
-
 	// Certificates.
 	caCert, caKey, err := cert.LoadCA(
-		"./certs/ca.pem",
-		"./certs/ca.key",
+		filepath.Join(paths.Home, "certs/ca.pem"),
+		filepath.Join(paths.Home, "certs/ca.key"),
 	)
 	if err != nil {
 		return err
@@ -65,12 +88,12 @@ func run() error {
 	// Plugins.
 	pm := plugin.NewManager()
 
-	err = plugin.LoadPlugins(cfg, pm)
+	err = plugin.LoadPlugins(paths, cfg, pm)
 	if err != nil {
 		return err
 	}
 
-	workspace, err := initWorkspace(wf, gc)
+	workspace, err := initWorkspace(paths, wf)
 	if err != nil {
 		return err
 	}
@@ -148,7 +171,7 @@ func run() error {
 		}
 	}
 
-	err = saveWorkspace(workspace, gc)
+	err = saveWorkspace(paths, workspace)
 	if err != nil {
 		return err
 	}
@@ -156,34 +179,23 @@ func run() error {
 	return nil
 }
 
-func initConfig() (*config.Config, config.WorkspaceFlags, error) {
-	var workspaceFlags config.WorkspaceFlags
-	var proxyFlags config.ProxyFlags
+func initConfig(pf config.ProxyFlags) (*config.Paths, *config.Config, error) {
+	paths := config.NewPaths(config.ResolveHome(""))
 
-	flag.BoolVar(&workspaceFlags.Interactive, "i", false, "interactive flag, false by default")
-	flag.StringVar(&workspaceFlags.Workspace, "w", "", "workspace name to load, creates new in memory on empty")
-
-	flag.IntVar(&proxyFlags.Port, "port", 0, "proxy port override")
-
-	flag.Parse()
-
-	path, err := config.ResolvePath("")
+	cfgPath, err := paths.GetConfigPath("")
 	if err != nil {
-		return nil, config.WorkspaceFlags{}, err
+		return paths, nil, err
 	}
 
-	cfg, err := config.LoadWithFlags(path, proxyFlags)
+	cfg, err := config.LoadWithFlags(cfgPath, pf)
 	if err != nil {
-		return nil, config.WorkspaceFlags{}, err
+		return paths, nil, err
 	}
 
-	return cfg, workspaceFlags, nil
+	return paths, cfg, nil
 }
 
-func initWorkspace(
-	wf config.WorkspaceFlags,
-	gc *config.GooseConfig,
-) (*model.Workspace, error) {
+func initWorkspace(paths *config.Paths, wf config.WorkspaceFlags) (*model.Workspace, error) {
 	workspace := model.NewWorkspace(wf.Workspace)
 	if wf.Workspace == "" {
 		return workspace, nil
@@ -193,7 +205,7 @@ func initWorkspace(
 		return nil, err
 	}
 
-	dbConnection := persistence.NewConnection(gc, workspace.GetName(), "./bin")
+	dbConnection := persistence.NewConnection(workspace.GetName(), filepath.Join(paths.Home, "db"))
 	if err := dbConnection.Open(); err != nil {
 		return nil, err
 	}
@@ -244,7 +256,7 @@ func runServer(s *http.Server) error {
 	return err
 }
 
-func saveWorkspace(w *model.Workspace, gc *config.GooseConfig) error {
+func saveWorkspace(paths *config.Paths, w *model.Workspace) error {
 	if w.GetName() == "" {
 		inputName, err := cli.AskWithValidator(
 			cli.IO{
@@ -267,7 +279,7 @@ func saveWorkspace(w *model.Workspace, gc *config.GooseConfig) error {
 		}
 	}
 
-	dbConn := persistence.NewConnection(gc, w.GetName(), "./bin")
+	dbConn := persistence.NewConnection(w.GetName(), filepath.Join(paths.Home, "db"))
 	err := dbConn.Open()
 	if err != nil {
 		if errors.Is(err, persistence.DBErrorFileNotFound) {

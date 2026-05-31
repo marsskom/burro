@@ -7,10 +7,11 @@ import (
 	"path/filepath"
 
 	"gitlab.com/marsskom/burro/internal/config"
+	rt "gitlab.com/marsskom/burro/internal/runtime"
 	"gopkg.in/yaml.v3"
 )
 
-func LoadPlugins(cfg *config.Config, pm *Manager) error {
+func LoadPlugins(paths *config.Paths, cfg *config.Config, pm *Manager) error {
 	for name, pluginCfg := range cfg.Plugins {
 		slog.Debug("Try to init plugin", "plugin", name)
 
@@ -23,7 +24,7 @@ func LoadPlugins(cfg *config.Config, pm *Manager) error {
 
 		p := factory()
 
-		sepCfg, err := resolvePluginConfig(&cfg.Core.Plugins, name)
+		sepCfg, err := resolvePluginConfig(paths.Home, cfg.Core.Plugins, name)
 		if err != nil {
 			return err
 		}
@@ -32,7 +33,13 @@ func LoadPlugins(cfg *config.Config, pm *Manager) error {
 			pluginCfg = sepCfg
 		}
 
-		if err := p.Init(pluginCfg); err != nil {
+		if err := p.Init(NewRuntime(
+			rt.NewFileArtifactStore(filepath.Join(paths.Home, "artifacts", name)),
+			rt.NewPluginDataStore(filepath.Join(paths.Home, cfg.Core.Plugins.Dir, name)),
+			rt.NewKeyValue(),
+			rt.NewEventBus(),
+			rt.NewCoreLogger(),
+		), pluginCfg); err != nil {
 			return fmt.Errorf("cannot init plugin: %w", err)
 		}
 
@@ -42,12 +49,12 @@ func LoadPlugins(cfg *config.Config, pm *Manager) error {
 	return nil
 }
 
-func resolvePluginConfig(cfg *config.CorePluginsConfig, name string) (any, error) {
-	path := filepath.Join(cfg.Dir, name, cfg.Config)
+func resolvePluginConfig(home string, cfg config.CorePluginsConfig, name string) (any, error) {
+	path := filepath.Join(home, cfg.Dir, name, cfg.Config)
 	slog.Debug("Try to find separate plugin config file", "path", path)
 
 	if _, err := os.Stat(path); err == nil {
-		slog.Info("Separate plugin config has been found and is going to be used", "path", path, "name", name)
+		slog.Info("Separate plugin config has been found and is going to be used", "path", path)
 
 		data, err := os.ReadFile(path)
 		if err != nil {
@@ -62,7 +69,7 @@ func resolvePluginConfig(cfg *config.CorePluginsConfig, name string) (any, error
 		return pCfg, nil
 	}
 
-	slog.Debug("Separate config for plugin wasn't found", "name", name)
+	slog.Debug("Separate config for plugin wasn't found", "path", path)
 
 	return nil, nil
 }

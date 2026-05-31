@@ -26,22 +26,12 @@ for t in "${TARGETS[@]}"; do
 
   CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH \
     go build -ldflags="-s -w -X main.version=${VERSION}" \
-    -o package/burro ./cmd/proxy
-
-  CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH \
-    go build -ldflags="-s -w" \
-    -o package/certgen ./cmd/certgen
+    -o package/burro ./cmd/burro
 
   echo "[2/5] Copying configs"
 
-  cp config.yml package/
-  cp .env.example package/.env
-  cp -R data package/
-
-  find plugins -type f -name '*.yml' | while read -r file; do
-    mkdir -p "package/$(dirname "$file")"
-    cp "$file" "package/$file"
-  done
+  cp -R runtime package/
+  find package/runtime -type f \( -name ".gitignore" -o -name ".gitkeep" \) -delete
 
   echo "[3/5] Creating archive"
 
