@@ -1,10 +1,13 @@
 package plugin
 
-import "gitlab.com/marsskom/burro/internal/model"
+import (
+	"gitlab.com/marsskom/burro/internal/model"
+	"gitlab.com/marsskom/burro/internal/pluginapi"
+)
 
 type Plugin interface {
 	Name() string
-	Init(cfg any) error
+	Init(rt pluginapi.Runtime, cfg any) error
 }
 
 type ConnectHook interface {

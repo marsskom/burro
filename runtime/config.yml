@@ -1,7 +1,7 @@
 core:
   log_level: debug
   plugins:
-    dir: "./plugins"
+    dir: "plugins"
     config: "config.yml"
 
 proxy:
@@ -14,5 +14,5 @@ plugins:
   policy: # separate config
 
   harexport:
-    file: "./bin/%session%-%datetime%.har"
+    file: "%session%-%datetime%.har"
     override: true

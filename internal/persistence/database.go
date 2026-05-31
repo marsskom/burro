@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"gitlab.com/marsskom/burro/internal/config"
 	_ "modernc.org/sqlite"
 )
 
@@ -17,17 +16,15 @@ var (
 )
 
 type DBConnection struct {
-	FileName    string
-	Path        string
-	DB          *sql.DB
-	GooseConfig *config.GooseConfig
+	FileName string
+	Path     string
+	DB       *sql.DB
 }
 
-func NewConnection(cfg *config.GooseConfig, filename string, path string) *DBConnection {
+func NewConnection(filename string, path string) *DBConnection {
 	return &DBConnection{
-		FileName:    filename,
-		Path:        path,
-		GooseConfig: cfg,
+		FileName: filename,
+		Path:     path,
 	}
 }
 
@@ -42,7 +39,7 @@ func (c *DBConnection) connect() error {
 	}
 
 	c.DB = db
-	err = runMigrations(c.GooseConfig, c.DB)
+	err = runMigrations(c.DB)
 	if err != nil {
 		c.DB.Close()
 

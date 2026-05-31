@@ -16,16 +16,20 @@ Burro is a modular security and traffic inspection tool that allows extending it
 
 ## Configuration
 
+Main Burro directory is `runtime`.
+
+It is shipped with binary and contains predefined structure for configs, plugins' data and artifacts.
+
+You may override runtime directory via environment variable:
+
+```text
+BURRO_HOME=runtime
+```
+
 Burro uses a main configuration file located at:
 
 ```text
-config.yml
-```
-
-You can override its location via environment variable:
-
-```text
-BURRO_CONFIG=config.yml
+runtime/config.yml
 ```
 
 ---
@@ -37,7 +41,7 @@ core:
   log_level: debug
 
   plugins:
-    dir: "./plugins"
+    dir: "plugins"
     config: "config.yml"
 
 proxy:
@@ -50,7 +54,7 @@ plugins:
   policy:
 
   harexport:
-    file: "./bin/%session%-%datetime%.har"
+    file: "%session%-%datetime%.har"
     override: true
 ```
 
@@ -74,21 +78,27 @@ plugins:
 Plugins may also define their own configuration file:
 
 ```text
-plugins/policy/config.yml
+runtime/plugins/policy/config.yml
 ```
 
 Example:
 
 ```yml
 priority: 10
-whitelist: ./data/policy/whitelist.txt
-blacklist: ./data/policy/blacklist.txt
+whitelist: ./data/whitelist.txt
+blacklist: ./data/blacklist.txt
 ```
 
 This allows separation of:
 
 - global orchestration config
 - plugin-specific logic config
+
+Please, pay attention that all paths in plugin section works under `runtime` directory.
+
+Each plugin has an access to `runtime/artifacts/%plugin-name%` directory as file storage.
+
+And `runtime/plugins/%plugin-name%` as data storage where it can only read files.
 
 ---
 
@@ -140,11 +150,7 @@ More details here:
 make build
 ```
 
-Binary will be available in:
-
-```text
-./bin/burro-proxy
-```
+Binary will be available in project root as `burro`.
 
 ### Run proxy
 
@@ -152,25 +158,27 @@ You may just run proxy without building it:
 
 - `make urn` - runs proxy without saving any artifacts (db, plugins' files)
 - `make run` - runs new empty session, but at the end you may save it, even to existed one
-- `make run ARGS="-w workspace-name"` - loads workspace from db and continue session under this workspace
+- `make run ARGS="-w %workspace-name%"` - loads workspace from db and continue session under this workspace
 
 Or use raw commands:
 
-- `go run ./cmd/proxy` - (`burro`) - same as `make urn`
-- `go run ./cmd/proxy -i` - (`burro -i`) - same as `make run`
-- `go run ./cmd/proxy -i -w workspace-name` - (`burro -i -w workspace-name`) - same as `make run ARGS="-w workspace-name"` (flag `-i` is optional, depends do you want to save a session afterwards)
+- `go run ./cmd/burro proxy` - (`burro proxy`) - same as `make urn`
+- `go run ./cmd/burro proxy -i` - (`burro proxy -i`) - same as `make run`
+- `go run ./cmd/burro proxy -i -w %workspace-name%` - (`burro proxy -i -w %workspace-name`%) - same as `make run ARGS="-w %workspace-name%"` (flag `-i` is optional, depends do you want to save a session afterwards)
+
+All those commands use `runtime` directory.
 
 ### Artifacts
 
 By default, Burro on exit (`CTRL+C`) asks if you want to save session.
 
-The session is a basically workspace in Burro and if you agreed to save it and provided a workspace's name it will create SQLite db file with this name under `./bin` directory.
+The session is a basically workspace in Burro and if you agreed to save it and provided a workspace's name it will create SQLite db file with this name under `runtime/db/` directory.
 
-Moreover, some plugins also may create some artifacts.
+Moreover, some plugins also may create some artifacts - `runtime/artifacts/`.
 
-For instance, HAR export plugin creates HAR report file under `./bin` directory by default.
+For instance, HAR export plugin creates HAR report file under `runtime/artifacts/harexport/` directory by default.
 
-Even you chose do not save workspace since HAR export plugin must be configured in config file.
+Even you chose do not save workspace HAR plugin creates artifacts, since it must be configured in config file.
 
 ### Browser usage
 
@@ -186,20 +194,23 @@ The only requirement here is - Chromium must be installed in your system already
 
 No one modern web portal works without HTTPS, means you Burro need a CA certificate installed in your system as allowed and trusted.
 
-For MacOS you may consider to look at commands in the `Makefile`:
+To generate CA certificates use:
 
-- `make certs` - (`certgen`) - generates certificates
+- `make certs` - (`burro cert init`) - generates certificates (puts under `runtime/certs` directory)
+
+To operate CA in MacOS you may consider following commands in the `Makefile`:
+
 - `make ca-install`
 - `make ca-remove`
 - `make ca-find` - shows if certificate was found in the OS
 
-For other OS, please, read respective documentation.
+For other OS, please, read the respective documentation.
 
 ---
 
 ## Docker
 
-`Makefile` provides additional docker commands for safety.
+`Makefile` provides additional docker commands as well.
 
 If you just want to try Burro in isolated environment.
 
@@ -219,7 +230,7 @@ All plugins that use native hooks are located under `plugins` directory.
 
 You may create a directory for your own plugin, also place a separate `config.yml` file into the directory.
 
-But not forget to add plugin name (directory name) into global `config.yml` as well:
+But not forget to add plugin name (directory name) into global `runtime/config.yml` as well:
 
 ```yml
 plugins:
@@ -233,7 +244,7 @@ The `Plugin` is basically an interface (`./internal/plugin/plugin.go`):
 ```golang
 type Plugin interface {
 	Name() string
-	Init(cfg any) error
+	Init(rt pluginapi.Runtime, cfg any) error
 }
 ```
 
@@ -258,6 +269,8 @@ type PolicyPlugin struct {
 	priority  int
 	whitelist []string
 	blacklist []string
+
+	rt pluginapi.Runtime
 }
 
 func New() *PolicyPlugin {
@@ -272,8 +285,10 @@ func (p *PolicyPlugin) Name() string {
 	return "policy"
 }
 
-func (p *PolicyPlugin) Init(cfg any) error {
-	slog.Debug("Policy plugin is going to init with config", "config", cfg)
+func (p *PolicyPlugin) Init(rt pluginapi.Runtime, cfg any) error {
+	p.rt = rt
+
+	p.rt.Log().Debug("Policy plugin is going to init with config", "config", cfg)
 
 	var config PolicyConfig
 	if err := plugin.DecodeYAML(cfg, &config); err != nil {
@@ -283,19 +298,35 @@ func (p *PolicyPlugin) Init(cfg any) error {
 	p.priority = config.Priority
 
 	if config.Whitelist != "" {
-		whitelist, err := LoadDomains(config.Whitelist)
+		f, err := p.rt.Data().Read(config.Whitelist)
 		if err != nil {
+			return fmt.Errorf("Policy Plugin Init: cannot read whitelist file: %w", err)
+		}
+
+		whitelist, err := LoadDomains(f)
+		if err != nil {
+			f.Close()
+
 			return fmt.Errorf("Policy Plugin Init: cannot load whitelist: %w", err)
 		}
+		f.Close()
 
 		p.whitelist = whitelist
 	}
 
 	if config.Blacklist != "" {
-		blacklist, err := LoadDomains(config.Blacklist)
+		f, err := p.rt.Data().Read(config.Blacklist)
 		if err != nil {
+			return fmt.Errorf("Policy Plugin Init: cannot read blacklist file: %w", err)
+		}
+
+		blacklist, err := LoadDomains(f)
+		if err != nil {
+			f.Close()
+
 			return fmt.Errorf("Policy Plugin Init: cannot load blacklist: %w", err)
 		}
+		f.Close()
 
 		p.blacklist = blacklist
 	}
@@ -305,13 +336,13 @@ func (p *PolicyPlugin) Init(cfg any) error {
 
 func (p *PolicyPlugin) OnRequest(ctx *model.RequestContext) error {
 	if len(p.whitelist) > 0 && Match(ctx.Request.Host, p.whitelist) {
-		slog.Debug("Request host was found in whitelist", "host", ctx.Request.Host)
+		p.rt.Log().Debug("Request host was found in whitelist", "host", ctx.Request.Host)
 
 		return nil
 	}
 
 	if len(p.blacklist) > 0 && Match(ctx.Request.Host, p.blacklist) {
-		slog.Debug("Request host was found in blacklist", "host", ctx.Request.Host)
+		p.rt.Log().Debug("Request host was found in blacklist", "host", ctx.Request.Host)
 
 		ctx.Finish(response.Forbidden())
 	}

@@ -1,18 +1,18 @@
 -include .env
 export
 
-CA_CERT=certs/ca.pem
+CA_CERT=runtime/certs/ca.pem
 CA_NAME=Burro CA
 KEYCHAIN=/Library/Keychains/System.keychain
 
-PROXY=burro-proxy
+PROXY=burro
 
 ARGS ?=
 
 .PHONY: certs
 certs:
-	go run ./cmd/certgen 
-
+	BURRO_HOME=./runtime \
+		go run ./cmd/burro cert init
 
 .PHONY: ca-install
 ca-install:
@@ -44,17 +44,20 @@ gen:
 
 .PHONY: build
 build:
-	go build -o bin/$(PROXY) ./cmd/proxy
+	$(MAKE) gen
+	go build -o $(PROXY) ./cmd/burro
 
 .PHONY: run
 run:
 	$(MAKE) gen
-	BURRO_CONFIG=config.yml && go run ./cmd/proxy -i $(ARGS)
+	BURRO_HOME=./runtime \
+		go run ./cmd/burro proxy -i $(ARGS)
 
 .PHONY: urn
 urn:
 	$(MAKE) gen
-	BURRO_CONFIG=config.yml && go run ./cmd/proxy $(ARGS)
+	BURRO_HOME=./runtime \
+		go run ./cmd/burro proxy $(ARGS)
 
 .PHONY: browser
 browser:
@@ -80,12 +83,17 @@ docker-build:
 
 .PHONY: docker-run
 docker-run:
-	docker run -it --rm -p 8080:8080 $(PROJECT) -i $(ARGS)
+	docker run -it --rm -p 8080:8080 \
+		-v ./runtime:/usr/src/app/runtime \
+		$(PROJECT) proxy -i $(ARGS)
 
 .PHONY: docker-urn
 docker-urn:
-	docker run --rm -p 8080:8080 $(PROJECT) $(ARGS)
+	docker run --rm -p 8080:8080 $(PROJECT) proxy $(ARGS)
 
 .PHONY: toose
 toose:
-	goose $(ARGS) 
+	GOOSE_DRIVER="sqlite3" \
+		GOOSE_DBSTRING="./runtime/db/goose.sqlite3" \
+		GOOSE_MIGRATION_DIR="./internal/migrations/sql/schema" \
+		goose $(ARGS) 

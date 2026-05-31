@@ -30,7 +30,8 @@ test:
   image: golang:1.26
   stage: test
   script:
-    - go test ./...
+    - go test ./internal/...
+    - go test ./plugins/...
 
 # Build Stage (tags only).
 build:

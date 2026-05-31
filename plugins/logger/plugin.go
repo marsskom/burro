@@ -1,12 +1,12 @@
 package logger
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 
 	"gitlab.com/marsskom/burro/internal/model"
 	"gitlab.com/marsskom/burro/internal/plugin"
+	"gitlab.com/marsskom/burro/internal/pluginapi"
 )
 
 func init() {
@@ -19,20 +19,20 @@ type LoggerConfig struct {
 }
 
 type LoggerPlugin struct {
-	logger *slog.Logger
+	rt pluginapi.Runtime
 }
 
 func New() *LoggerPlugin {
-	return &LoggerPlugin{
-		logger: slog.Default(),
-	}
+	return &LoggerPlugin{}
 }
 
 func (p *LoggerPlugin) Name() string {
 	return "logger"
 }
 
-func (p *LoggerPlugin) Init(cfg any) error {
+func (p *LoggerPlugin) Init(rt pluginapi.Runtime, cfg any) error {
+	p.rt = rt
+
 	return nil
 }
 
@@ -90,5 +90,14 @@ func (p *LoggerPlugin) log(level slog.Level, msg string, ctx *model.RequestConte
 		)
 	}
 
-	p.logger.Log(context.Background(), level, msg, args...)
+	switch level {
+	case slog.LevelDebug:
+		p.rt.Log().Debug(msg, args...)
+	case slog.LevelWarn:
+		p.rt.Log().Warn(msg, args...)
+	case slog.LevelError:
+		p.rt.Log().Error(msg, args...)
+	default:
+		p.rt.Log().Info(msg, args...)
+	}
 }

@@ -4,8 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"log/slog"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -13,6 +11,7 @@ import (
 	"gitlab.com/marsskom/burro/internal/export"
 	"gitlab.com/marsskom/burro/internal/model"
 	"gitlab.com/marsskom/burro/internal/plugin"
+	"gitlab.com/marsskom/burro/internal/pluginapi"
 )
 
 func init() {
@@ -37,6 +36,7 @@ type HARExportPlugin struct {
 
 	entries map[string]*HAREntry
 
+	rt pluginapi.Runtime
 	mu sync.RWMutex
 }
 
@@ -58,8 +58,10 @@ func (p *HARExportPlugin) Name() string {
 	return "harexport"
 }
 
-func (p *HARExportPlugin) Init(cfg any) error {
-	slog.Debug("HAR exporter plugin is going to init with config", "config", cfg)
+func (p *HARExportPlugin) Init(rt pluginapi.Runtime, cfg any) error {
+	p.rt = rt
+
+	p.rt.Log().Debug("HAR exporter plugin is going to init with config", "config", cfg)
 
 	var config HARExporConfig
 	if err := plugin.DecodeYAML(cfg, &config); err != nil {
@@ -89,33 +91,25 @@ func (p *HARExportPlugin) Flush(opts *export.FileNameVars) error {
 	filename := strings.ReplaceAll(p.outputFile, "%session%", opts.Session)
 	filename = strings.ReplaceAll(filename, "%datetime%", time.Now().Format("2026_12_31_12_00_00"))
 
-	isExists := false
-	if _, err := os.Stat(filename); err == nil {
-		if !p.override {
-			return fmt.Errorf("HAR cannot override existed file: %s", filename)
-		}
-
-		isExists = true
+	isExists := p.rt.Artifacts().Exists(filename)
+	if isExists && !p.override {
+		return fmt.Errorf("HAR cannot override existed file: %s", filename)
 	}
 
 	tmp := filename + ".tmp"
-	os.Remove(tmp)
+	p.rt.Artifacts().Delete(tmp)
 
-	f, err := os.Create(tmp)
+	f, err := p.rt.Artifacts().Create(tmp)
 	if err != nil {
-		return fmt.Errorf("HAR cannot create output file: %w", err)
+		return fmt.Errorf("HAR cannot create tmp file: %w", err)
 	}
-	defer f.Close()
-
-	enc := json.NewEncoder(f)
-	enc.SetIndent("", "  ")
 
 	entries := make([]HAREntry, 0, len(p.entries))
 	for _, e := range p.entries {
 		entries = append(entries, *e)
 	}
 
-	err = enc.Encode(HAR{
+	har := HAR{
 		Log: HARLog{
 			Version: "1.2",
 			Creator: HARCreator{
@@ -125,19 +119,26 @@ func (p *HARExportPlugin) Flush(opts *export.FileNameVars) error {
 			Pages:   make([]HARPage, 0),
 			Entries: entries,
 		},
-	})
-	if err != nil {
-		return fmt.Errorf("HAR cannot write into file: %w", err)
 	}
 
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(har); err != nil {
+		f.Close()
+
+		return fmt.Errorf("HAR cannot encode: %w", err)
+	}
+
+	f.Close()
+
 	if isExists {
-		err := os.Remove(filename)
+		err := p.rt.Artifacts().Delete(filename)
 		if err != nil {
 			return fmt.Errorf("HAR cannot remove existed file: %s", filename)
 		}
 	}
 
-	os.Rename(tmp, filename)
+	p.rt.Artifacts().Rename(tmp, filename)
 
 	return nil
 }
@@ -214,7 +215,7 @@ func (p *HARExportPlugin) OnRequest(ctx *model.RequestContext) error {
 		},
 	}
 
-	slog.Debug("On request HAR adds entry for request context", "ctx", ctx.ID, "entry", entry)
+	p.rt.Log().Debug("On request HAR adds entry for request context", "ctx", ctx.ID, "entry", entry)
 
 	p.entries[ctx.ID] = entry
 
@@ -231,7 +232,7 @@ func (p *HARExportPlugin) OnResponse(ctx *model.RequestContext) error {
 
 	entry, ok := p.entries[ctx.ID]
 	if !ok {
-		slog.Warn("On response HAR entry for context doesn't exist", "ctx", ctx.ID)
+		p.rt.Log().Warn("On response HAR entry for context doesn't exist", "ctx", ctx.ID)
 
 		return nil
 	}
@@ -287,7 +288,7 @@ func (p *HARExportPlugin) OnResponse(ctx *model.RequestContext) error {
 		SSL:     int(ctx.ResponseSnapshot.TimeSSL.Milliseconds()),
 	}
 
-	slog.Debug("On response HAR add to entry response data", "ctx", ctx.ID, "response", entry.Response)
+	p.rt.Log().Debug("On response HAR add to entry response data", "ctx", ctx.ID, "response", entry.Response)
 
 	return nil
 }

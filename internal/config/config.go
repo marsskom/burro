@@ -9,11 +9,49 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var userHomeDir = os.UserHomeDir
+type Paths struct {
+	Home string
+}
 
-type CorePluginsConfig struct {
-	Dir    string `yaml:"dir"`
-	Config string `yaml:"config"`
+func NewPaths(home string) *Paths {
+	return &Paths{
+		Home: home,
+	}
+}
+
+func ResolveHome(explicit string) string {
+	if explicit != "" {
+		return explicit
+	}
+
+	if env := os.Getenv("BURRO_HOME"); env != "" {
+		return env
+	}
+
+	return "./runtime"
+}
+
+func (p *Paths) GetConfigPath(explicit string) (string, error) {
+	if explicit != "" {
+		return explicit, nil
+	}
+
+	if env := os.Getenv("BURRO_CONFIG"); env != "" {
+		return env, nil
+	}
+
+	path := filepath.Join(p.Home, "config.yml")
+	if _, err := os.Stat(path); err == nil {
+		return path, nil
+	}
+
+	return "", errors.New("config not found")
+}
+
+type Config struct {
+	Core    CoreConfig     `yaml:"core"`
+	Proxy   ProxyConfig    `yaml:"proxy"`
+	Plugins map[string]any `yaml:"plugins"`
 }
 
 type CoreConfig struct {
@@ -26,10 +64,9 @@ type ProxyConfig struct {
 	Host string `yaml:"host"`
 }
 
-type Config struct {
-	Core    CoreConfig     `yaml:"core"`
-	Proxy   ProxyConfig    `yaml:"proxy"`
-	Plugins map[string]any `yaml:"plugins"`
+type CorePluginsConfig struct {
+	Dir    string `yaml:"dir"`
+	Config string `yaml:"config"`
 }
 
 func LoadWithFlags(configPath string, proxyFlags ProxyFlags) (*Config, error) {
@@ -55,31 +92,4 @@ func Load(configPath string) (*Config, error) {
 	}
 
 	return &cfg, nil
-}
-
-func ResolvePath(explicit string) (string, error) {
-	if explicit != "" {
-		return explicit, nil
-	}
-
-	if env := os.Getenv("BURRO_CONFIG"); env != "" {
-		return env, nil
-	}
-
-	home, err := userHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("resolve config path error on get user home dir: %w", err)
-	}
-
-	defaultPath := filepath.Join(home, ".burro", "config.yml")
-
-	if _, err := os.Stat(defaultPath); err == nil {
-		return defaultPath, nil
-	}
-
-	if _, err := os.Stat("./config.yml"); err == nil {
-		return "./config.yml", nil
-	}
-
-	return "", errors.New("config not found")
 }

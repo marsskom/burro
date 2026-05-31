@@ -3,9 +3,11 @@ package policy
 import (
 	"net/http"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"gitlab.com/marsskom/burro/internal/model"
+	"gitlab.com/marsskom/burro/internal/testutils"
 )
 
 func TestLoadDomains(t *testing.T) {
@@ -19,9 +21,11 @@ func TestLoadDomains(t *testing.T) {
 	if _, err := tmp.WriteString(content); err != nil {
 		t.Fatal(err)
 	}
-	tmp.Close()
+	defer tmp.Close()
 
-	domains, err := LoadDomains(tmp.Name())
+	tmp.Seek(0, 0)
+
+	domains, err := LoadDomains(tmp)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,6 +62,7 @@ func TestMatch(t *testing.T) {
 
 func TestPolicy_WhitelistAllows(t *testing.T) {
 	p := New()
+	p.Init(testutils.NewForPlugin(""), map[string]any{})
 
 	p.whitelist = []string{"example.com"}
 
@@ -79,6 +84,7 @@ func TestPolicy_WhitelistAllows(t *testing.T) {
 
 func TestPolicy_BlacklistBlocks(t *testing.T) {
 	p := New()
+	p.Init(testutils.NewForPlugin(""), map[string]any{})
 
 	p.blacklist = []string{"example.com"}
 
@@ -100,6 +106,7 @@ func TestPolicy_BlacklistBlocks(t *testing.T) {
 
 func TestPolicy_WhitelistPriority(t *testing.T) {
 	p := New()
+	p.Init(testutils.NewForPlugin(""), map[string]any{})
 
 	p.whitelist = []string{"example.com"}
 	p.blacklist = []string{"example.com"}
@@ -126,7 +133,7 @@ func TestLoadDomains_NoEmptyLines(t *testing.T) {
 
 	_ = os.WriteFile(tmp.Name(), []byte("example.com\n"), 0644)
 
-	domains, err := LoadDomains(tmp.Name())
+	domains, err := LoadDomains(tmp)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,12 +155,11 @@ func TestPolicy_Init(t *testing.T) {
 
 	cfg := PolicyConfig{
 		Priority:  10,
-		Whitelist: tmpW.Name(),
+		Whitelist: filepath.Base(tmpW.Name()),
 	}
 
 	p := New()
-
-	err := p.Init(cfg)
+	err := p.Init(testutils.NewForPlugin(filepath.Dir(tmpW.Name())), cfg)
 	if err != nil {
 		t.Fatal(err)
 	}

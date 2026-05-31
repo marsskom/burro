@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"gitlab.com/marsskom/burro/internal/model"
+	"gitlab.com/marsskom/burro/internal/pluginapi"
 )
 
 var calls map[string][]string
@@ -26,7 +27,7 @@ func newMock(name string) *mockBurroPlugin {
 	}
 }
 
-func (m *mockBurroPlugin) Init(cfg any) error { return nil }
+func (m *mockBurroPlugin) Init(rt pluginapi.Runtime, cfg any) error { return nil }
 
 func (m *mockBurroPlugin) Name() string { return m.name }
 
@@ -108,7 +109,7 @@ func newMockOnConnect(name string) *mockBurroOnConnectPlugin {
 	}
 }
 
-func (m *mockBurroOnConnectPlugin) Init(cfg any) error { return nil }
+func (m *mockBurroOnConnectPlugin) Init(rt pluginapi.Runtime, cfg any) error { return nil }
 
 func (m *mockBurroOnConnectPlugin) Name() string { return m.name }
 

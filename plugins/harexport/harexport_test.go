@@ -2,17 +2,19 @@ package harexport
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
-	"os"
 	"testing"
 	"time"
 
 	"gitlab.com/marsskom/burro/internal/export"
 	"gitlab.com/marsskom/burro/internal/model"
+	"gitlab.com/marsskom/burro/internal/testutils"
 )
 
 func TestHAR_OnRequest_CreatesEntry(t *testing.T) {
 	p := New()
+	p.Init(testutils.NewForPlugin(""), map[string]any{})
 
 	ctx := newCtx()
 
@@ -41,6 +43,7 @@ func TestHAR_OnRequest_CreatesEntry(t *testing.T) {
 
 func TestHAR_OnResponse_EnrichesEntry(t *testing.T) {
 	p := New()
+	p.Init(testutils.NewForPlugin(""), map[string]any{})
 
 	ctx := newCtx()
 
@@ -78,6 +81,7 @@ func TestHAR_OnResponse_EnrichesEntry(t *testing.T) {
 
 func TestHAR_Response_TextEncoding(t *testing.T) {
 	p := New()
+	p.Init(testutils.NewForPlugin(""), map[string]any{})
 
 	ctx := newCtx()
 
@@ -108,6 +112,7 @@ func TestHAR_Response_TextEncoding(t *testing.T) {
 
 func TestHAR_Response_Base64Encoding(t *testing.T) {
 	p := New()
+	p.Init(testutils.NewForPlugin(""), map[string]any{})
 
 	ctx := newCtx()
 
@@ -133,8 +138,14 @@ func TestHAR_Response_Base64Encoding(t *testing.T) {
 }
 
 func TestHAR_Flush_WritesFile(t *testing.T) {
+	dir := t.TempDir()
+
+	runtime := testutils.NewForPlugin(dir)
+
 	p := New()
-	p.outputFile = t.TempDir() + "/test.har"
+	p.Init(runtime, map[string]any{})
+
+	p.outputFile = "test.har"
 
 	ctx := newCtx()
 
@@ -157,10 +168,18 @@ func TestHAR_Flush_WritesFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	data, err := os.ReadFile(p.outputFile)
+	reader, err := runtime.Artifacts().Read(p.outputFile)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		reader.Close()
+
+		t.Fatal(err)
+	}
+	reader.Close()
 
 	var har HAR
 	if err := json.Unmarshal(data, &har); err != nil {
@@ -173,8 +192,12 @@ func TestHAR_Flush_WritesFile(t *testing.T) {
 }
 
 func TestHAR_Flush_Empty(t *testing.T) {
+	dir := t.TempDir()
+
 	p := New()
-	p.outputFile = t.TempDir() + "/empty.har"
+	p.Init(testutils.NewForPlugin(dir), map[string]any{})
+
+	p.outputFile = "empty.har"
 
 	err := p.Flush(&export.FileNameVars{
 		Session: "x",
@@ -187,6 +210,7 @@ func TestHAR_Flush_Empty(t *testing.T) {
 
 func TestHAR_Flush_MissingSession(t *testing.T) {
 	p := New()
+	p.Init(testutils.NewForPlugin(""), map[string]any{})
 	p.outputFile = "/tmp/%session%.har"
 
 	p.entries["x"] = &HAREntry{}
