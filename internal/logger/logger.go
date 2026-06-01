@@ -8,14 +8,36 @@ import (
 	"gitlab.com/marsskom/burro/internal/config"
 )
 
-func SetDefault(cfg config.CoreConfig) {
+const LevelTrace = slog.Level(-8)
+
+func SetDefault(verbosity int, cfg config.CoreConfig) {
+	var level slog.Level
+	if verbosity > 0 {
+		level = verbosityToLevel(verbosity)
+	} else {
+		level = parseLevel(cfg.LogLevel)
+	}
+
 	opts := &slog.HandlerOptions{
-		Level: parseLevel(cfg.LogLevel),
+		Level: level,
 	}
 
 	handler := slog.NewJSONHandler(os.Stdout, opts)
 
 	slog.SetDefault(slog.New(handler))
+}
+
+func verbosityToLevel(v int) slog.Level {
+	switch {
+	case v >= 3:
+		return LevelTrace
+	case v == 2:
+		return slog.LevelDebug
+	case v == 1:
+		return slog.LevelInfo
+	default:
+		return slog.LevelError
+	}
 }
 
 func parseLevel(level string) slog.Level {

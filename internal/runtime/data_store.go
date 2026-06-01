@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 )
 
+// TODO: don't forget to create some data store only for reading purposes and not rely on artifacts store without write implementation.
 type PluginDataStore struct {
 	basePath string
 }
@@ -22,7 +23,11 @@ func (s *PluginDataStore) Create(name string) (io.WriteCloser, error) {
 }
 
 func (s *PluginDataStore) Exists(name string) bool {
-	clean := filepath.Clean("/" + name)[1:]
+	clean, err := cleanPath(name)
+	if err != nil {
+		return false
+	}
+
 	full := filepath.Join(s.basePath, clean)
 
 	if _, err := os.Stat(full); err != nil {
@@ -41,7 +46,10 @@ func (s *PluginDataStore) Write(name string, r io.Reader) (string, error) {
 }
 
 func (s *PluginDataStore) Read(name string) (io.ReadCloser, error) {
-	clean := filepath.Clean("/" + name)[1:]
+	clean, err := cleanPath(name)
+	if err != nil {
+		return nil, err
+	}
 
 	return os.Open(filepath.Join(s.basePath, clean))
 }
@@ -54,7 +62,7 @@ func (s *PluginDataStore) List() ([]string, error) {
 	var out []string
 
 	err := filepath.Walk(s.basePath, func(path string, info os.FileInfo, err error) error {
-		if !info.IsDir() {
+		if info != nil && !info.IsDir() {
 			out = append(out, path)
 		}
 

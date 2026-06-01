@@ -7,6 +7,10 @@ import (
 	"path/filepath"
 )
 
+func cleanPath(name string) (string, error) {
+	return filepath.Rel("/", filepath.Clean("/"+name))
+}
+
 type FileArtifactStore struct {
 	basePath string
 }
@@ -18,7 +22,11 @@ func NewFileArtifactStore(basePath string) *FileArtifactStore {
 }
 
 func (s *FileArtifactStore) Create(name string) (io.WriteCloser, error) {
-	clean := filepath.Clean("/" + name)[1:]
+	clean, err := cleanPath(name)
+	if err != nil {
+		return nil, err
+	}
+
 	full := filepath.Join(s.basePath, clean)
 
 	if err := os.MkdirAll(filepath.Dir(full), 0755); err != nil {
@@ -29,7 +37,11 @@ func (s *FileArtifactStore) Create(name string) (io.WriteCloser, error) {
 }
 
 func (s *FileArtifactStore) Exists(name string) bool {
-	clean := filepath.Clean("/" + name)[1:]
+	clean, err := cleanPath(name)
+	if err != nil {
+		return false
+	}
+
 	full := filepath.Join(s.basePath, clean)
 
 	if _, err := os.Stat(full); err != nil {
@@ -47,10 +59,20 @@ func (s *FileArtifactStore) Rename(oldpath, newpath string) error {
 		return fmt.Errorf("artifacts: newpath '%s' already in use", newpath)
 	}
 
-	fullOP := filepath.Join(s.basePath, filepath.Clean("/" + oldpath)[1:])
-	fullNP := filepath.Join(s.basePath, filepath.Clean("/" + newpath)[1:])
+	cleanOP, err := cleanPath(oldpath)
+	if err != nil {
+		return err
+	}
 
-	err := os.Rename(fullOP, fullNP)
+	cleanNP, err := cleanPath(newpath)
+	if err != nil {
+		return err
+	}
+
+	fullOP := filepath.Join(s.basePath, cleanOP)
+	fullNP := filepath.Join(s.basePath, cleanNP)
+
+	err = os.Rename(fullOP, fullNP)
 	if err != nil {
 		return fmt.Errorf("artifacts: cannot rename '%s' to '%s': %w", oldpath, newpath, err)
 	}
@@ -59,7 +81,11 @@ func (s *FileArtifactStore) Rename(oldpath, newpath string) error {
 }
 
 func (s *FileArtifactStore) Write(name string, r io.Reader) (string, error) {
-	clean := filepath.Clean("/" + name)[1:]
+	clean, err := cleanPath(name)
+	if err != nil {
+		return "", err
+	}
+
 	full := filepath.Join(s.basePath, clean)
 
 	if err := os.MkdirAll(filepath.Dir(full), 0755); err != nil {
@@ -81,13 +107,19 @@ func (s *FileArtifactStore) Write(name string, r io.Reader) (string, error) {
 }
 
 func (s *FileArtifactStore) Read(name string) (io.ReadCloser, error) {
-	clean := filepath.Clean("/" + name)[1:]
+	clean, err := cleanPath(name)
+	if err != nil {
+		return nil, err
+	}
 
 	return os.Open(filepath.Join(s.basePath, clean))
 }
 
 func (s *FileArtifactStore) Delete(name string) error {
-	clean := filepath.Clean("/" + name)[1:]
+	clean, err := cleanPath(name)
+	if err != nil {
+		return err
+	}
 
 	return os.Remove(filepath.Join(s.basePath, clean))
 }
@@ -96,7 +128,7 @@ func (s *FileArtifactStore) List() ([]string, error) {
 	var out []string
 
 	err := filepath.Walk(s.basePath, func(path string, info os.FileInfo, err error) error {
-		if !info.IsDir() {
+		if info != nil && !info.IsDir() {
 			out = append(out, path)
 		}
 

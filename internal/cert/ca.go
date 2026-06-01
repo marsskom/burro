@@ -3,6 +3,7 @@ package cert
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
@@ -108,4 +109,37 @@ func LoadCA(certPath, keyPath string) (*x509.Certificate, *rsa.PrivateKey, error
 	}
 
 	return caCert, caKey, nil
+}
+
+func WriteTLSCertificate(cert *tls.Certificate, certPath, keyPath string) error {
+	certOut, err := os.Create(certPath)
+	if err != nil {
+		return err
+	}
+	defer certOut.Close()
+
+	for _, der := range cert.Certificate {
+		if err := pem.Encode(certOut, &pem.Block{
+			Type:  "CERTIFICATE",
+			Bytes: der,
+		}); err != nil {
+			return err
+		}
+	}
+
+	keyOut, err := os.Create(keyPath)
+	if err != nil {
+		return err
+	}
+	defer keyOut.Close()
+
+	switch key := cert.PrivateKey.(type) {
+	case *rsa.PrivateKey:
+		return pem.Encode(keyOut, &pem.Block{
+			Type:  "RSA PRIVATE KEY",
+			Bytes: x509.MarshalPKCS1PrivateKey(key),
+		})
+	default:
+		return fmt.Errorf("unsupported private key type %T", cert.PrivateKey)
+	}
 }

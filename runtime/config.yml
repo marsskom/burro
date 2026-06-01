@@ -1,12 +1,20 @@
 core:
-  log_level: debug
+  log_level: error
   plugins:
     dir: "plugins"
     config: "config.yml"
 
 proxy:
-  port: 8080
-  host: 0.0.0.0
+  listen: localhost:8080
+
+grpc:
+  enabled: true
+  listen: localhost:7777
+
+tls:
+  enabled: false
+  cert:
+  key:
 
 plugins:
   logger:

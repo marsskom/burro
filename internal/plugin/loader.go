@@ -13,11 +13,11 @@ import (
 
 func LoadPlugins(paths *config.Paths, cfg *config.Config, pm *Manager) error {
 	for name, pluginCfg := range cfg.Plugins {
-		slog.Debug("Try to init plugin", "plugin", name)
+		slog.Debug("try to init plugin", "plugin", name)
 
 		factory, ok := registry[name]
 		if !ok {
-			slog.Warn("Plugin is not in registry", "plugin", name)
+			slog.Warn("plugin is not in registry", "plugin", name)
 
 			continue
 		}
@@ -51,10 +51,10 @@ func LoadPlugins(paths *config.Paths, cfg *config.Config, pm *Manager) error {
 
 func resolvePluginConfig(home string, cfg config.CorePluginsConfig, name string) (any, error) {
 	path := filepath.Join(home, cfg.Dir, name, cfg.Config)
-	slog.Debug("Try to find separate plugin config file", "path", path)
+	slog.Debug("try to find separate plugin config file", "path", path)
 
 	if _, err := os.Stat(path); err == nil {
-		slog.Info("Separate plugin config has been found and is going to be used", "path", path)
+		slog.Info("separate plugin config has been found and is going to be used", "plugin", name, "path", path)
 
 		data, err := os.ReadFile(path)
 		if err != nil {
@@ -69,7 +69,7 @@ func resolvePluginConfig(home string, cfg config.CorePluginsConfig, name string)
 		return pCfg, nil
 	}
 
-	slog.Debug("Separate config for plugin wasn't found", "path", path)
+	slog.Debug("separate config for plugin wasn't found", "plugin", name, "path", path)
 
 	return nil, nil
 }

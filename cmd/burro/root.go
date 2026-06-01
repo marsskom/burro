@@ -11,6 +11,17 @@ var rootCmd = &cobra.Command{
 	Short: "Burro proxy and security inspection tool",
 }
 
+var verbosity int
+
+func init() {
+	rootCmd.PersistentFlags().CountVarP(
+		&verbosity,
+		"verbose",
+		"v",
+		"increase verbosity (-v, -vv, -vvv)",
+	)
+}
+
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

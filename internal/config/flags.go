@@ -1,18 +1,13 @@
 package config
 
 type ProxyFlags struct {
-	Port int
-}
-
-func MergeProxy(cfg ProxyConfig, flags ProxyFlags) ProxyConfig {
-	if flags.Port != 0 {
-		cfg.Port = flags.Port
-	}
-
-	return cfg
-}
-
-type WorkspaceFlags struct {
-	Interactive bool
-	Workspace   string
+	ZeroCfg    bool
+	Listen     string
+	GRPCListen string
+	WorkDir    string
+	Workspace  string
+	TLSCert    string
+	TLSKey     string
+	CACert     string
+	CAKey      string
 }

@@ -11,8 +11,7 @@ func TestLoad(t *testing.T) {
 core:
   log_level: debug
 proxy:
-  port: 8080
-  host: localhost
+  listen: localhost:8080
 plugins:
   test: true
 `
@@ -31,12 +30,8 @@ plugins:
 		t.Fatalf("expected debug, got %s", cfg.Core.LogLevel)
 	}
 
-	if cfg.Proxy.Port != 8080 {
-		t.Fatalf("expected 8080, got %d", cfg.Proxy.Port)
-	}
-
-	if cfg.Proxy.Host != "localhost" {
-		t.Fatalf("expected localhost, got %s", cfg.Proxy.Host)
+	if cfg.Proxy.Listen != "localhost:8080" {
+		t.Fatalf("expected localhost:8080, got %s", cfg.Proxy.Listen)
 	}
 }
 
@@ -45,34 +40,67 @@ func TestLoadWithFlags(t *testing.T) {
 core:
   log_level: info
 proxy:
-  port: 8080
-  host: 127.0.0.1
+  listen: 127.0.0.1:8080
+tls:
+  enabled: false
+  cert:
+  key:
 `
 
-	tmp := filepath.Join(t.TempDir(), "config.yml")
-	if err := os.WriteFile(tmp, []byte(content), 0644); err != nil {
-		t.Fatal(err)
-	}
+	t.Run("load valid flags", func(t *testing.T) {
+		tmp := filepath.Join(t.TempDir(), "config.yml")
+		if err := os.WriteFile(tmp, []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
 
-	cfg, err := LoadWithFlags(tmp, ProxyFlags{
-		Port: 9999,
+		cfg, err := LoadWithFlags(tmp, ProxyFlags{
+			Listen:  "localhost:7676",
+			TLSCert: "cert.pem",
+			TLSKey:  "key.key",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if cfg.Proxy.Listen != "localhost:7676" {
+			t.Fatalf("expected localhost:7676, got %s", cfg.Proxy.Listen)
+		}
+
+		if !cfg.TLS.Enabled {
+			t.Fatalf("expected enabled TLS, got %v", cfg.TLS.Enabled)
+		}
+
+		if cfg.TLS.Cert != "cert.pem" {
+			t.Fatalf("expected cert.pem, got %s", cfg.TLS.Cert)
+		}
+
+		if cfg.TLS.Key != "key.key" {
+			t.Fatalf("expected key.key, got %s", cfg.TLS.Key)
+		}
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
 
-	if cfg.Proxy.Port != 9999 {
-		t.Fatalf("expected overridden port 9999, got %d", cfg.Proxy.Port)
-	}
+	t.Run("load invalid listen string", func(t *testing.T) {
+		tmp := filepath.Join(t.TempDir(), "config.yml")
+		if err := os.WriteFile(tmp, []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
 
-	if cfg.Proxy.Host != "127.0.0.1" {
-		t.Fatalf("host should stay unchanged, got %s", cfg.Proxy.Host)
-	}
+		cfg, err := LoadWithFlags(tmp, ProxyFlags{
+			Listen: "localhost-7676",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if cfg.Proxy.Listen != "127.0.0.1:8080" {
+			t.Fatalf("expected 127.0.0.1:8080, got %s", cfg.Proxy.Listen)
+		}
+	})
 }
 
-func TestResolveHome(t *testing.T) {
+func TestResolveWorkdir(t *testing.T) {
 	t.Run("explicit wins", func(t *testing.T) {
-		got := ResolveHome("/tmp")
+		got := ResolveWorkdir("/tmp")
 
 		if got != "/tmp" {
 			t.Fatalf("expected explicit path, got %s", got)
@@ -80,10 +108,10 @@ func TestResolveHome(t *testing.T) {
 	})
 
 	t.Run("env wins over default", func(t *testing.T) {
-		os.Setenv("BURRO_HOME", "/env")
-		defer os.Unsetenv("BURRO_HOME")
+		os.Setenv("BURRO_WORKDIR", "/env")
+		defer os.Unsetenv("BURRO_WORKDIR")
 
-		got := ResolveHome("")
+		got := ResolveWorkdir("")
 
 		if got != "/env" {
 			t.Fatalf("expected env path, got %s", got)
@@ -91,7 +119,7 @@ func TestResolveHome(t *testing.T) {
 	})
 
 	t.Run("fallback to ./runtime", func(t *testing.T) {
-		got := ResolveHome("")
+		got := ResolveWorkdir("")
 
 		if got != "./runtime" {
 			t.Fatalf("expected ./runtime, got %s", got)

@@ -13,7 +13,7 @@ func TestLogger_OnRequest(t *testing.T) {
 	runtime := testutils.NewForPlugin("")
 
 	p := New()
-	p.Init(runtime, map[string]interface{}{})
+	p.Init(runtime, map[string]any{})
 
 	req, _ := http.NewRequest("GET", "http://example.com/test", nil)
 
@@ -33,7 +33,7 @@ func TestLogger_OnRequest(t *testing.T) {
 	}
 
 	message := logger.Messages["info"][0]
-	if !strings.Contains(message, "Request received") {
+	if !strings.Contains(message, "request received") {
 		t.Fatalf("expected log output, got: %s", message)
 	}
 
@@ -46,7 +46,7 @@ func TestLogger_OnError(t *testing.T) {
 	runtime := testutils.NewForPlugin("")
 
 	p := New()
-	p.Init(runtime, map[string]interface{}{})
+	p.Init(runtime, map[string]any{})
 
 	ctx := &model.RequestContext{
 		ID: "err-1",
@@ -61,7 +61,7 @@ func TestLogger_OnError(t *testing.T) {
 
 	message := logger.Messages["error"][0]
 
-	if !strings.Contains(message, "Error occurred") {
+	if !strings.Contains(message, "error occurred") {
 		t.Fatal("missing error log message")
 	}
 
@@ -74,7 +74,7 @@ func TestLogger_NilFieldsSafety(t *testing.T) {
 	runtime := testutils.NewForPlugin("")
 
 	p := New()
-	p.Init(runtime, map[string]interface{}{})
+	p.Init(runtime, map[string]any{})
 
 	ctx := &model.RequestContext{
 		ID: "nil-test",
@@ -92,7 +92,7 @@ func TestLogger_ResponseContextIncluded(t *testing.T) {
 	runtime := testutils.NewForPlugin("")
 
 	p := New()
-	p.Init(runtime, map[string]interface{}{})
+	p.Init(runtime, map[string]any{})
 
 	ctx := &model.RequestContext{
 		ID: "resp-1",
@@ -112,7 +112,7 @@ func TestLogger_ResponseContextIncluded(t *testing.T) {
 
 	message := logger.Messages["info"][0]
 
-	if !strings.Contains(message, "Response received") {
+	if !strings.Contains(message, "response received") {
 		t.Fatal("missing response log")
 	}
 
@@ -125,7 +125,7 @@ func TestLogger_MetadataSafety(t *testing.T) {
 	runtime := testutils.NewForPlugin("")
 
 	p := New()
-	p.Init(runtime, map[string]interface{}{})
+	p.Init(runtime, map[string]any{})
 
 	ctx := &model.RequestContext{
 		ID: "meta-1",

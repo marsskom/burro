@@ -65,6 +65,23 @@ func (c *DBConnection) Open() error {
 	return c.connect()
 }
 
+func (c *DBConnection) OpenOrCreate() error {
+	err := c.Open()
+	if err == nil {
+		return nil
+	}
+
+	if !errors.Is(err, DBErrorFileNotFound) {
+		return err
+	}
+
+	if err := c.Create(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (c *DBConnection) Close() {
 	if c.DB != nil {
 		c.DB.Close()

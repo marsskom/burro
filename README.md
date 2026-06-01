@@ -1,6 +1,17 @@
+<p align="center">
+  <img src="logo.webp" alt="Burro Logo" width="250"/>
+
+  <br/>
+
+<strong>Burro</strong>
+
+</p>
+
+---
+
 # Burro
 
-Burro is a modular security and traffic inspection tool that allows extending its behavior through a plugin-based architecture.
+Burro (pronounced the same as word "burrow" /ˈbʌr.əʊ/) is a modular security and traffic inspection tool that allows extending its behavior through a plugin-based architecture.
 
 ---
 
@@ -23,7 +34,7 @@ It is shipped with binary and contains predefined structure for configs, plugins
 You may override runtime directory via environment variable:
 
 ```text
-BURRO_HOME=runtime
+BURRO_WORKDIR=runtime
 ```
 
 Burro uses a main configuration file located at:

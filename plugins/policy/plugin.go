@@ -44,11 +44,11 @@ func (p *PolicyPlugin) Name() string {
 func (p *PolicyPlugin) Init(rt pluginapi.Runtime, cfg any) error {
 	p.rt = rt
 
-	p.rt.Log().Debug("Policy plugin is going to init with config", "config", cfg)
+	p.rt.Log().Debug("policy plugin is going to init with config", "config", cfg)
 
 	var config PolicyConfig
 	if err := plugin.DecodeYAML(cfg, &config); err != nil {
-		return fmt.Errorf("Policy Plugin Init: cannot read plugin config: %w", err)
+		return fmt.Errorf("policy: cannot read plugin config: %w", err)
 	}
 
 	p.priority = config.Priority
@@ -56,14 +56,14 @@ func (p *PolicyPlugin) Init(rt pluginapi.Runtime, cfg any) error {
 	if config.Whitelist != "" {
 		f, err := p.rt.Data().Read(config.Whitelist)
 		if err != nil {
-			return fmt.Errorf("Policy Plugin Init: cannot read whitelist file: %w", err)
+			return fmt.Errorf("policy: cannot read whitelist file: %w", err)
 		}
 
 		whitelist, err := LoadDomains(f)
 		if err != nil {
 			f.Close()
 
-			return fmt.Errorf("Policy Plugin Init: cannot load whitelist: %w", err)
+			return fmt.Errorf("policy: cannot load whitelist: %w", err)
 		}
 		f.Close()
 
@@ -73,14 +73,14 @@ func (p *PolicyPlugin) Init(rt pluginapi.Runtime, cfg any) error {
 	if config.Blacklist != "" {
 		f, err := p.rt.Data().Read(config.Blacklist)
 		if err != nil {
-			return fmt.Errorf("Policy Plugin Init: cannot read blacklist file: %w", err)
+			return fmt.Errorf("policy: cannot read blacklist file: %w", err)
 		}
 
 		blacklist, err := LoadDomains(f)
 		if err != nil {
 			f.Close()
 
-			return fmt.Errorf("Policy Plugin Init: cannot load blacklist: %w", err)
+			return fmt.Errorf("policy: cannot load blacklist: %w", err)
 		}
 		f.Close()
 
@@ -92,13 +92,13 @@ func (p *PolicyPlugin) Init(rt pluginapi.Runtime, cfg any) error {
 
 func (p *PolicyPlugin) OnRequest(ctx *model.RequestContext) error {
 	if len(p.whitelist) > 0 && Match(ctx.Request.Host, p.whitelist) {
-		p.rt.Log().Debug("Request host was found in whitelist", "host", ctx.Request.Host)
+		p.rt.Log().Debug("request host was found in whitelist", "host", ctx.Request.Host)
 
 		return nil
 	}
 
 	if len(p.blacklist) > 0 && Match(ctx.Request.Host, p.blacklist) {
-		p.rt.Log().Debug("Request host was found in blacklist", "host", ctx.Request.Host)
+		p.rt.Log().Debug("request host was found in blacklist", "host", ctx.Request.Host)
 
 		ctx.Finish(response.Forbidden())
 	}

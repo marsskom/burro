@@ -51,7 +51,6 @@ func ToStoredRequest(requestContext *model.RequestContext) (database.Request, er
 		Proto         sql.NullString
 		Headers       sql.NullString
 		ContentLength sql.NullInt64
-		Duration      sql.NullInt64
 		Body          []byte
 	}{
 		Status: sql.NullString{

@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package burro;
+
+option go_package = "gitlab.com/marsskom/burro/internal/proto;proto";
+
+service Burro {
+  rpc Ping(PingRequest) returns (PingResponse);
+
+  rpc Subscribe(SubscribeRequest) returns (stream Event);
+}
+
+message PingRequest {}
+
+message PingResponse {
+  string message = 1;
+}
+
+message SubscribeRequest {
+  repeated string event_types = 1;
+}
+
+message Event {
+  string type = 1;
+
+  string id = 2;
+  string session_id = 3;
+
+  string proto = 4;
+  string scheme = 5;
+  string host = 6;
+  string method = 7;
+  string url = 8;
+  string path = 9;
+  int64 content_length = 10;
+  string remote_addr = 11;
+
+  int64 start_time = 12;
+  int32 state = 13;
+  bool is_finished = 14;
+
+  string query_params = 15;   // JSON
+  string headers = 16;        // JSON
+  string cookies = 17;        // JSON
+
+  bytes request_body = 18;
+
+  string response_status = 19;
+  int32 response_status_code = 20;
+  string response_proto = 21;
+  string response_headers = 22; // JSON
+  int64 response_content_length = 23;
+  bytes response_body = 24;
+
+  int64 created_at = 25;
+  int64 updated_at = 26;
+
+  string metadata = 27; // JSON
+}
+
