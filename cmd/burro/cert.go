@@ -63,8 +63,7 @@ func init() {
 		"save path to tls key",
 	)
 
-	certInitCmd.MarkFlagRequired("dst-cert")
-	certInitCmd.MarkFlagRequired("dst-key")
+	certInitCmd.MarkFlagsRequiredTogether("dst-cert", "dst-key")
 
 	certCmd.AddCommand(certInitCmd)
 
@@ -93,10 +92,9 @@ func init() {
 		"save path to tls key",
 	)
 
-	certInitCmd.MarkFlagRequired("src-cert")
-	certInitCmd.MarkFlagRequired("src-key")
-	certInitCmd.MarkFlagRequired("dst-cert")
-	certInitCmd.MarkFlagRequired("dst-key")
+	certGenerateCmd.MarkFlagsRequiredTogether("src-cert", "src-key")
+	certGenerateCmd.MarkFlagRequired("dst-cert")
+	certGenerateCmd.MarkFlagRequired("dst-key")
 
 	certCmd.AddCommand(certGenerateCmd)
 }
