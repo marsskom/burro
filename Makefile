@@ -46,10 +46,15 @@ build:
 	$(MAKE) gen
 	go build -o $(PROXY) ./cmd/burro
 
-.PHONY: run
-run:
+.PHONY: proxy
+proxy:
 	$(MAKE) gen
 	go run ./cmd/burro -d runtime proxy $(ARGS)
+
+.PHONY: serve
+serve:
+	$(MAKE) gen
+	go run ./cmd/burro serve $(ARGS)
 
 .PHONY: protoge
 protoge:
@@ -87,7 +92,7 @@ docker-build:
 docker-run:
 	docker run -it --rm -p 8080:8080 \
 		-v ./runtime:/usr/src/app/runtime \
-		$(PROJECT) proxy $(ARGS)
+		$(PROJECT) $(ARGS)
 
 .PHONY: toose
 toose:

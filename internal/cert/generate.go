@@ -25,7 +25,7 @@ func GenerateHostCertificate(
 
 	serial, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
 
-	hostname, _, err := net.SplitHostPort(host)
+	hostname, port, err := net.SplitHostPort(host)
 	if err != nil {
 		hostname = host
 	}
@@ -37,6 +37,10 @@ func GenerateHostCertificate(
 			"127.0.0.1",
 			"::1",
 		}
+	}
+
+	if port != "" {
+		DNSNames = append(DNSNames, fmt.Sprintf(":%s", port))
 	}
 
 	tpl := x509.Certificate{
