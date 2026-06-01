@@ -11,8 +11,7 @@ ARGS ?=
 
 .PHONY: certs
 certs:
-	BURRO_HOME=./runtime \
-		go run ./cmd/burro cert init
+	go run ./cmd/burro cert $(ARGS)
 
 .PHONY: ca-install
 ca-install:
@@ -50,14 +49,17 @@ build:
 .PHONY: run
 run:
 	$(MAKE) gen
-	BURRO_HOME=./runtime \
-		go run ./cmd/burro proxy -i $(ARGS)
+	go run ./cmd/burro -d runtime proxy $(ARGS)
 
-.PHONY: urn
-urn:
-	$(MAKE) gen
-	BURRO_HOME=./runtime \
-		go run ./cmd/burro proxy $(ARGS)
+.PHONY: protoge
+protoge:
+	protoc \
+   -I api \
+   --go_out=./internal/proto/ \
+   --go-grpc_out=./internal/proto/ \
+   --go_opt=paths=source_relative \
+   --go-grpc_opt=paths=source_relative \
+   api/burro.proto
 
 .PHONY: browser
 browser:
@@ -85,11 +87,7 @@ docker-build:
 docker-run:
 	docker run -it --rm -p 8080:8080 \
 		-v ./runtime:/usr/src/app/runtime \
-		$(PROJECT) proxy -i $(ARGS)
-
-.PHONY: docker-urn
-docker-urn:
-	docker run --rm -p 8080:8080 $(PROJECT) proxy $(ARGS)
+		$(PROJECT) proxy $(ARGS)
 
 .PHONY: toose
 toose:

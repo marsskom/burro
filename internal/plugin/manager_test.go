@@ -2,8 +2,11 @@ package plugin
 
 import (
 	"errors"
+	"net/http/httptest"
 	"testing"
+	"time"
 
+	"gitlab.com/marsskom/burro/internal/broker"
 	"gitlab.com/marsskom/burro/internal/model"
 	"gitlab.com/marsskom/burro/internal/pluginapi"
 )
@@ -131,7 +134,7 @@ func (m *mockBurroOnConnectPlugin) OnConnect(*model.RequestContext) error {
 func TestManager_EmitRequest(t *testing.T) {
 	calls = make(map[string][]string)
 
-	m := NewManager()
+	m := NewManager(broker.NewHub())
 
 	p1 := newMock("p1")
 	p2 := newMock("p2")
@@ -139,7 +142,9 @@ func TestManager_EmitRequest(t *testing.T) {
 	m.Register(p1)
 	m.Register(p2)
 
-	err := m.EmitRequest(&model.RequestContext{})
+	r := httptest.NewRequest("GET", "http://example.com", nil)
+
+	err := m.EmitRequest(model.NewCtx(model.NewSession(), r))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -156,7 +161,7 @@ func TestManager_EmitRequest(t *testing.T) {
 func TestManager_DisabledPluginSkipped(t *testing.T) {
 	calls = make(map[string][]string)
 
-	m := NewManager()
+	m := NewManager(broker.NewHub())
 
 	enabled := true
 	disabled := false
@@ -184,7 +189,7 @@ func TestManager_DisabledPluginSkipped(t *testing.T) {
 func TestManager_PriorityOrder(t *testing.T) {
 	calls = make(map[string][]string)
 
-	m := NewManager()
+	m := NewManager(broker.NewHub())
 
 	p1 := newMock("low")
 	p1.priority = 200
@@ -208,15 +213,16 @@ func TestManager_PriorityOrder(t *testing.T) {
 	}
 }
 
-func TestManager_StopOnError(t *testing.T) {
+func TestManager_DoNotStopOnError(t *testing.T) {
 	calls = make(map[string][]string)
 
-	m := NewManager()
+	m := NewManager(broker.NewHub())
 
 	p1 := newMock("p1")
 	p2 := newMock("p2")
 
 	p1.fail["request"] = true
+	p2.fail["request"] = true
 
 	m.Register(p1)
 	m.Register(p2)
@@ -230,15 +236,15 @@ func TestManager_StopOnError(t *testing.T) {
 		t.Fatal("p1 should be called")
 	}
 
-	if p2.called["request"] {
-		t.Fatal("p2 should NOT be called after error")
+	if !p2.called["request"] {
+		t.Fatal("p2 should be called")
 	}
 }
 
 func TestManager_HookFiltering(t *testing.T) {
 	calls = make(map[string][]string)
 
-	m := NewManager()
+	m := NewManager(broker.NewHub())
 
 	p := newMockOnConnect("only-connect")
 
@@ -253,5 +259,33 @@ func TestManager_HookFiltering(t *testing.T) {
 
 	if p.called["request"] {
 		t.Fatal("request should NOT be called")
+	}
+}
+
+func TestManager_EmitRequest_WithHub(t *testing.T) {
+	calls = make(map[string][]string)
+
+	hub := broker.NewHub()
+
+	ch := hub.Subscribe()
+	defer hub.Unsubscribe(ch)
+
+	m := NewManager(hub)
+
+	r := httptest.NewRequest("GET", "http://example.com", nil)
+
+	err := m.EmitRequest(model.NewCtx(model.NewSession(), r))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	select {
+	case event := <-ch:
+		if event.Type != broker.EventRequest {
+			t.Fatalf("unexpected event type: %v", event.Type)
+		}
+
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("timeout waiting for hub event")
 	}
 }

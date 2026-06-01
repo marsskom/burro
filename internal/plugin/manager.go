@@ -1,15 +1,18 @@
 package plugin
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
 
+	"gitlab.com/marsskom/burro/internal/broker"
 	"gitlab.com/marsskom/burro/internal/export"
 	"gitlab.com/marsskom/burro/internal/model"
 )
 
 type Manager struct {
+	hub     *broker.Hub
 	plugins []pluginMeta
 }
 
@@ -19,12 +22,14 @@ type pluginMeta struct {
 	priority int
 }
 
-func NewManager() *Manager {
-	return &Manager{}
+func NewManager(hub *broker.Hub) *Manager {
+	return &Manager{
+		hub: hub,
+	}
 }
 
 func (m *Manager) Register(p Plugin) {
-	slog.Debug("Register plugin", "plugin", p.Name())
+	slog.Debug("register plugin", "plugin", p.Name())
 
 	plugin := pluginMeta{
 		plugin:   p,
@@ -46,6 +51,8 @@ func (m *Manager) sort() {
 }
 
 func (m *Manager) EmitExportPluginsFlush(opts *export.FileNameVars) error {
+	var errs []error
+
 	for _, p := range m.plugins {
 		slog.Debug("EmitExportPluginsFlush: try plugin", "name", p.plugin.Name())
 		if !p.enabled {
@@ -55,17 +62,18 @@ func (m *Manager) EmitExportPluginsFlush(opts *export.FileNameVars) error {
 		}
 
 		if e, ok := p.plugin.(export.Exporter); ok {
-			err := e.Flush(opts)
-			if err != nil {
-				return fmt.Errorf("Plugin Manager: error on EmitExportPluginsFlush: %w", err)
+			if err := e.Flush(opts); err != nil {
+				errs = append(errs, fmt.Errorf("Plugin Manager: error on EmitExportPluginsFlush: %w", err))
 			}
 		}
 	}
 
-	return nil
+	return errors.Join(errs...)
 }
 
 func (m *Manager) EmitConnect(ctx *model.RequestContext) error {
+	var errs []error
+
 	for _, p := range m.plugins {
 		slog.Debug("EmitConnect: try plugin", "name", p.plugin.Name())
 		if !p.enabled {
@@ -75,17 +83,26 @@ func (m *Manager) EmitConnect(ctx *model.RequestContext) error {
 		}
 
 		if h, ok := p.plugin.(ConnectHook); ok {
-			err := h.OnConnect(ctx)
-			if err != nil {
-				return fmt.Errorf("Plugin Manager: error on Connect hook: %w", err)
+			if err := h.OnConnect(ctx); err != nil {
+				errs = append(errs, fmt.Errorf("Plugin Manager: error on Connect hook: %w", err))
 			}
 		}
 	}
 
-	return nil
+	event, err := broker.ToBrokerEvent(broker.EventConnect, ctx)
+	if err != nil {
+		slog.Error("EmitConnect: cannot convert context to broker event", "err", err)
+		errs = append(errs, err)
+	} else {
+		m.hub.Publish(event)
+	}
+
+	return errors.Join(errs...)
 }
 
 func (m *Manager) EmitRequest(ctx *model.RequestContext) error {
+	var errs []error
+
 	for _, p := range m.plugins {
 		slog.Debug("EmitRequest: try plugin", "name", p.plugin.Name())
 		if !p.enabled {
@@ -95,17 +112,26 @@ func (m *Manager) EmitRequest(ctx *model.RequestContext) error {
 		}
 
 		if h, ok := p.plugin.(RequestHook); ok {
-			err := h.OnRequest(ctx)
-			if err != nil {
-				return fmt.Errorf("Plugin Manager: error on Request hook: %w", err)
+			if err := h.OnRequest(ctx); err != nil {
+				errs = append(errs, fmt.Errorf("Plugin Manager: error on Request hook: %w", err))
 			}
 		}
 	}
 
-	return nil
+	event, err := broker.ToBrokerEvent(broker.EventRequest, ctx)
+	if err != nil {
+		slog.Error("EmitRequest: cannot convert context to broker event", "err", err)
+		errs = append(errs, err)
+	} else {
+		m.hub.Publish(event)
+	}
+
+	return errors.Join(errs...)
 }
 
 func (m *Manager) EmitResponse(ctx *model.RequestContext) error {
+	var errs []error
+
 	for _, p := range m.plugins {
 		slog.Debug("EmitResponse: try plugin", "name", p.plugin.Name())
 		if !p.enabled {
@@ -115,17 +141,26 @@ func (m *Manager) EmitResponse(ctx *model.RequestContext) error {
 		}
 
 		if h, ok := p.plugin.(ResponseHook); ok {
-			err := h.OnResponse(ctx)
-			if err != nil {
-				return fmt.Errorf("Plugin Manager: error on Response hook: %w", err)
+			if err := h.OnResponse(ctx); err != nil {
+				errs = append(errs, fmt.Errorf("Plugin Manager: error on Response hook: %w", err))
 			}
 		}
 	}
 
-	return nil
+	event, err := broker.ToBrokerEvent(broker.EventResponse, ctx)
+	if err != nil {
+		slog.Error("EmitResponse: cannot convert context to broker event", "err", err)
+		errs = append(errs, err)
+	} else {
+		m.hub.Publish(event)
+	}
+
+	return errors.Join(errs...)
 }
 
 func (m *Manager) EmitError(ctx *model.RequestContext, err error) error {
+	var errs []error
+
 	for _, p := range m.plugins {
 		slog.Debug("EmitError: try plugin", "name", p.plugin.Name())
 		if !p.enabled {
@@ -135,17 +170,26 @@ func (m *Manager) EmitError(ctx *model.RequestContext, err error) error {
 		}
 
 		if h, ok := p.plugin.(ErrorHook); ok {
-			err := h.OnError(ctx, err)
-			if err != nil {
-				return fmt.Errorf("Plugin Manager: error on Error hook: %w", err)
+			if err := h.OnError(ctx, err); err != nil {
+				errs = append(errs, fmt.Errorf("Plugin Manager: error on Error hook: %w", err))
 			}
 		}
 	}
 
-	return nil
+	event, err := broker.ToBrokerEvent(broker.EventError, ctx)
+	if err != nil {
+		slog.Error("EmitError: cannot convert context to broker event", "err", err)
+		errs = append(errs, err)
+	} else {
+		m.hub.Publish(event)
+	}
+
+	return errors.Join(errs...)
 }
 
 func (m *Manager) EmitClose(ctx *model.RequestContext) error {
+	var errs []error
+
 	for _, p := range m.plugins {
 		slog.Debug("EmitClose: try plugin", "name", p.plugin.Name())
 		if !p.enabled {
@@ -155,12 +199,19 @@ func (m *Manager) EmitClose(ctx *model.RequestContext) error {
 		}
 
 		if h, ok := p.plugin.(CloseHook); ok {
-			err := h.OnClose(ctx)
-			if err != nil {
-				return fmt.Errorf("Plugin Manager: error on Close hook: %w", err)
+			if err := h.OnClose(ctx); err != nil {
+				errs = append(errs, fmt.Errorf("Plugin Manager: error on Close hook: %w", err))
 			}
 		}
 	}
 
-	return nil
+	event, err := broker.ToBrokerEvent(broker.EventClose, ctx)
+	if err != nil {
+		slog.Error("EmitClose: cannot convert context to broker event", "err", err)
+		errs = append(errs, err)
+	} else {
+		m.hub.Publish(event)
+	}
+
+	return errors.Join(errs...)
 }

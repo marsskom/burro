@@ -52,7 +52,7 @@ func (c *CertCache) Set(host CertCacheHostKey, item *CertCacheItem) error {
 
 	c.items[host.normalized] = item
 
-	slog.Debug("CertCache: set for a host", "host", host.normalized)
+	slog.Debug("certificate was added to cache for a host", "host", host.normalized)
 
 	return nil
 }
@@ -63,7 +63,7 @@ func (c *CertCache) Get(host CertCacheHostKey) (*CertCacheItem, bool) {
 
 	item, ok := c.items[host.normalized]
 
-	slog.Debug("CertCache: get for a host", "host", host.normalized, "ok", ok)
+	slog.Debug("get from certificates cache for a host", "host", host.normalized, "ok", ok)
 
 	return item, ok
 }
@@ -72,7 +72,7 @@ func (c *CertCache) Delete(host CertCacheHostKey) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	slog.Debug("CertCache: delete for a host", "host", host.normalized)
+	slog.Debug("delete from certificates cache for a host", "host", host.normalized)
 
 	delete(c.items, host.normalized)
 }
@@ -81,7 +81,7 @@ func (c *CertCache) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	slog.Debug("CertCache: clear")
+	slog.Debug("clear certificates cache")
 
 	c.items = make(map[string]*CertCacheItem)
 }

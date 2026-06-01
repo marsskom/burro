@@ -11,7 +11,7 @@ import (
 	"gitlab.com/marsskom/burro/internal/persistence/repository"
 )
 
-func TransactionalSaveWorkspace(ctx context.Context, db *sql.DB, workspace *model.Workspace) error {
+func UpsertWorkspaceCommand(ctx context.Context, db *sql.DB, workspace *model.Workspace) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("cannot begin transaction: %w", err)
@@ -31,7 +31,7 @@ func TransactionalSaveWorkspace(ctx context.Context, db *sql.DB, workspace *mode
 
 	// Sessions.
 	if len(workspace.Sessions) == 0 {
-		slog.Info("Workspace doesn't have the sessions", "workspace", workspace.Name)
+		slog.Info("workspace doesn't have the sessions", "workspace", workspace.Name)
 
 		return tx.Commit()
 	}
@@ -47,7 +47,7 @@ func TransactionalSaveWorkspace(ctx context.Context, db *sql.DB, workspace *mode
 
 		// Requests.
 		if len(s.Requests) == 0 {
-			slog.Debug("Session doesn't have requests", "session", s.ID)
+			slog.Debug("session doesn't have requests", "session", s.ID)
 
 			continue
 		}

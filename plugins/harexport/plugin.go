@@ -65,7 +65,7 @@ func (p *HARExportPlugin) Init(rt pluginapi.Runtime, cfg any) error {
 
 	var config HARExporConfig
 	if err := plugin.DecodeYAML(cfg, &config); err != nil {
-		return fmt.Errorf("HAR exporter plugin init: cannot read pluigin config: %w", err)
+		return fmt.Errorf("HAR: cannot read pluigin config: %w", err)
 	}
 
 	p.enabled = config.Enabled
@@ -89,7 +89,7 @@ func (p *HARExportPlugin) Flush(opts *export.FileNameVars) error {
 	}
 
 	filename := strings.ReplaceAll(p.outputFile, "%session%", opts.Session)
-	filename = strings.ReplaceAll(filename, "%datetime%", time.Now().Format("2026_12_31_12_00_00"))
+	filename = strings.ReplaceAll(filename, "%datetime%", time.Now().Format("2006_01_02_15_04_05"))
 
 	isExists := p.rt.Artifacts().Exists(filename)
 	if isExists && !p.override {
@@ -215,7 +215,7 @@ func (p *HARExportPlugin) OnRequest(ctx *model.RequestContext) error {
 		},
 	}
 
-	p.rt.Log().Debug("On request HAR adds entry for request context", "ctx", ctx.ID, "entry", entry)
+	p.rt.Log().Debug("on request HAR adds entry for request context", "ctx", ctx.ID, "entry", entry)
 
 	p.entries[ctx.ID] = entry
 
@@ -232,7 +232,7 @@ func (p *HARExportPlugin) OnResponse(ctx *model.RequestContext) error {
 
 	entry, ok := p.entries[ctx.ID]
 	if !ok {
-		p.rt.Log().Warn("On response HAR entry for context doesn't exist", "ctx", ctx.ID)
+		p.rt.Log().Warn("on response HAR entry for context doesn't exist", "ctx", ctx.ID)
 
 		return nil
 	}
@@ -288,7 +288,7 @@ func (p *HARExportPlugin) OnResponse(ctx *model.RequestContext) error {
 		SSL:     int(ctx.ResponseSnapshot.TimeSSL.Milliseconds()),
 	}
 
-	p.rt.Log().Debug("On response HAR add to entry response data", "ctx", ctx.ID, "response", entry.Response)
+	p.rt.Log().Debug("on response HAR add to entry response data", "ctx", ctx.ID, "response", entry.Response)
 
 	return nil
 }

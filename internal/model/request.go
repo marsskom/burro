@@ -228,7 +228,7 @@ func MakeRequestSnapshot(r *http.Request) (*RequestSnapshot, error) {
 		Body:          body,
 	}
 
-	slog.Debug("Request snapshot was created", "request", snapshot)
+	slog.Debug("request snapshot was created", "request", snapshot)
 
 	return snapshot, nil
 }
@@ -295,7 +295,7 @@ func MakeResponseSnapshot(res *http.Response, t *Timings) (*ResponseSnapshot, er
 		TimeWait:    t.FirstByte.Sub(t.WroteRequest),
 	}
 
-	slog.Debug("Response snapshot was created", "response", snapshot)
+	slog.Debug("response snapshot was created", "response", snapshot)
 
 	return snapshot, nil
 }

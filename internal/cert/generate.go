@@ -9,6 +9,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"math/big"
+	"net"
 	"time"
 )
 
@@ -19,17 +20,31 @@ func GenerateHostCertificate(
 ) (*tls.Certificate, error) {
 	private, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		return nil, fmt.Errorf("HostCA: error generate key: %w", err)
+		return nil, fmt.Errorf("host cert: error generate key: %w", err)
 	}
 
 	serial, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
 
+	hostname, _, err := net.SplitHostPort(host)
+	if err != nil {
+		hostname = host
+	}
+
+	DNSNames := []string{hostname}
+	if hostname == "localhost" {
+		DNSNames = []string{
+			hostname,
+			"127.0.0.1",
+			"::1",
+		}
+	}
+
 	tpl := x509.Certificate{
 		SerialNumber: serial,
 		Subject: pkix.Name{
-			CommonName: host,
+			CommonName: hostname,
 		},
-		DNSNames:  []string{host},
+		DNSNames:  DNSNames,
 		NotBefore: time.Now().Add(-time.Hour),
 		NotAfter:  time.Now().AddDate(1, 0, 0),
 		KeyUsage:  x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
@@ -46,7 +61,7 @@ func GenerateHostCertificate(
 		caKey,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("HostCA: error create certificate: %w", err)
+		return nil, fmt.Errorf("host cert: error create certificate: %w", err)
 	}
 
 	certPEM := pem.EncodeToMemory(&pem.Block{
@@ -61,7 +76,7 @@ func GenerateHostCertificate(
 
 	certificate, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
-		return nil, fmt.Errorf("HostCA: error parse x509 key pair: %w", err)
+		return nil, fmt.Errorf("host cert: error parse x509 key pair: %w", err)
 	}
 
 	return &certificate, nil

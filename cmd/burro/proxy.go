@@ -1,25 +1,26 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
-	"io"
+	"log"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
+	"gitlab.com/marsskom/burro/internal/broker"
 	"gitlab.com/marsskom/burro/internal/cert"
-	"gitlab.com/marsskom/burro/internal/cli"
 	"gitlab.com/marsskom/burro/internal/config"
 	"gitlab.com/marsskom/burro/internal/database"
 	"gitlab.com/marsskom/burro/internal/export"
+	"gitlab.com/marsskom/burro/internal/grpc"
 	coreLogger "gitlab.com/marsskom/burro/internal/logger"
 	"gitlab.com/marsskom/burro/internal/model"
 	"gitlab.com/marsskom/burro/internal/persistence"
@@ -31,14 +32,22 @@ import (
 	_ "gitlab.com/marsskom/burro/plugins/registry"
 )
 
-var wf config.WorkspaceFlags
-var pf config.ProxyFlags
+var cliFlags config.ProxyFlags
 
 var proxyCmd = &cobra.Command{
-	Use:   "proxy",
-	Short: "Run Burro proxy",
+	Use:   "proxy [listen]",
+	Short: "Start Burro proxy",
+	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		run()
+		cliFlags.Listen = ""
+		if len(args) == 1 {
+			cliFlags.Listen = strings.TrimSpace(args[0])
+		}
+
+		err := run()
+		if err != nil {
+			log.Fatal(err)
+		}
 	},
 }
 
@@ -46,54 +55,104 @@ func init() {
 	rootCmd.AddCommand(proxyCmd)
 
 	proxyCmd.Flags().BoolVarP(
-		&wf.Interactive,
-		"interactive",
-		"i",
+		&cliFlags.ZeroCfg,
+		"z",
+		"z",
 		false,
-		"interactive flag, false by default",
+		"run proxy without configuration, only logger plugin works, TLS is not mandatory",
 	)
+
 	proxyCmd.Flags().StringVarP(
-		&wf.Workspace,
+		&cliFlags.GRPCListen,
+		"grpc",
+		"g",
+		"",
+		"gRPC listen address",
+	)
+
+	proxyCmd.Flags().StringVarP(
+		&cliFlags.WorkDir,
+		"workdir",
+		"d",
+		"",
+		"proxy work directory",
+	)
+
+	proxyCmd.Flags().StringVarP(
+		&cliFlags.Workspace,
 		"workspace",
 		"w",
 		"",
 		"workspace to load, creates new in memory on empty",
 	)
-	proxyCmd.Flags().IntVarP(
-		&pf.Port,
-		"port",
-		"p",
-		0,
-		"proxy port",
+
+	proxyCmd.Flags().StringVar(
+		&cliFlags.TLSCert,
+		"tls-cert",
+		"",
+		"path to tls certificate",
 	)
+	proxyCmd.Flags().StringVar(
+		&cliFlags.TLSKey,
+		"tls-key",
+		"",
+		"path to tls key",
+	)
+
+	proxyCmd.MarkFlagsRequiredTogether("tls-cert", "tls-key")
+
+	proxyCmd.Flags().StringVar(
+		&cliFlags.CACert,
+		"ca-cert",
+		"certs/ca.pem",
+		"path to proxy CA certificate in %workdir%",
+	)
+	proxyCmd.Flags().StringVar(
+		&cliFlags.CAKey,
+		"ca-key",
+		"certs/ca.key",
+		"path to proxy CA key in %workdir%",
+	)
+
+	proxyCmd.MarkFlagsRequiredTogether("ca-cert", "ca-key")
 }
 
 func run() error {
-	paths, cfg, err := initConfig(pf)
+	paths, cfg, err := initConfig(cliFlags)
 	if err != nil {
 		return err
 	}
 
-	coreLogger.SetDefault(cfg.Core)
+	coreLogger.SetDefault(verbosity, cfg.Core)
 
 	// Certificates.
-	caCert, caKey, err := cert.LoadCA(
-		filepath.Join(paths.Home, "certs/ca.pem"),
-		filepath.Join(paths.Home, "certs/ca.key"),
-	)
+	caCertPath := filepath.Join(paths.Home, cliFlags.CACert)
+	caKeyPath := filepath.Join(paths.Home, cliFlags.CAKey)
+	caCert, caKey, err := cert.LoadCA(caCertPath, caKeyPath)
+
 	if err != nil {
-		return err
+		if !cfg.Proxy.ZeroConfigurationMode {
+			return err
+		}
+
+		slog.Warn("CA certificates weren't loaded (ignore for zero configuration mode)", "cert", caCertPath, "key", caKeyPath)
+	} else {
+		slog.Info("CA certificates were loaded", "cert", caCertPath, "key", caKeyPath)
 	}
 
+	// Broker.
+	brokerHub := broker.NewHub()
+	// TODO: try run gRPC server, if we have an error with zro cfg mode - ignore an error
+
 	// Plugins.
-	pm := plugin.NewManager()
+	pm := plugin.NewManager(brokerHub)
 
 	err = plugin.LoadPlugins(paths, cfg, pm)
 	if err != nil {
 		return err
 	}
 
-	workspace, err := initWorkspace(paths, wf)
+	workspace, err := initWorkspace(paths, cfg, cliFlags.Workspace)
 	if err != nil {
 		return err
 	}
@@ -105,8 +164,12 @@ func run() error {
 	// Proxy.
 	px := proxy.NewProxy(pm, session, caCert, caKey)
 
+	if cfg.Proxy.Listen == "" {
+		return fmt.Errorf("proxy listen address cannot be empty")
+	}
+
 	server := &http.Server{
-		Addr:    fmt.Sprintf("%s:%d", cfg.Proxy.Host, cfg.Proxy.Port),
+		Addr:    cfg.Proxy.Listen,
 		Handler: px,
 
 		ReadTimeout:       15 * time.Second,
@@ -115,10 +178,9 @@ func run() error {
 		IdleTimeout:       60 * time.Second,
 	}
 
-	slog.Info("Proxy is listening on host", "host", cfg.Proxy.Host)
-	slog.Info("Proxy is listening on port", "port", cfg.Proxy.Port)
+	slog.Info("proxy is listening on", "host", cfg.Proxy.Listen)
 
-	if err := runServer(server); err != nil {
+	if err := runServer(cfg, brokerHub, server); err != nil {
 		return err
 	}
 
@@ -131,44 +193,12 @@ func run() error {
 		}
 	}()
 
-	if !wf.Interactive {
+	if cfg.Proxy.ZeroConfigurationMode {
 		return nil
 	}
 
 	if workspace.GetName() == "" {
-		okSaveWorkspace, err := cli.Confirm(
-			cli.IO{
-				In:  bufio.NewReader(os.Stdin),
-				Out: os.Stdout,
-			},
-			"Do you want to save current workspace?",
-			cli.ChoiceNo,
-		)
-		if err != nil && !errors.Is(err, io.EOF) {
-			return err
-		}
-
-		if !okSaveWorkspace {
-			return nil
-		}
-	}
-
-	if workspace.GetName() != "" {
-		okSaveWorkspace, err := cli.Confirm(
-			cli.IO{
-				In:  bufio.NewReader(os.Stdin),
-				Out: os.Stdout,
-			},
-			fmt.Sprintf("Add session to existing workspace [%s]?", workspace.GetName()),
-			cli.ChoiceYes,
-		)
-		if err != nil && !errors.Is(err, io.EOF) {
-			return err
-		}
-
-		if !okSaveWorkspace {
-			return nil
-		}
+		return nil
 	}
 
 	err = saveWorkspace(paths, workspace)
@@ -179,15 +209,30 @@ func run() error {
 	return nil
 }
 
-func initConfig(pf config.ProxyFlags) (*config.Paths, *config.Config, error) {
-	paths := config.NewPaths(config.ResolveHome(""))
+func initConfig(flags config.ProxyFlags) (*config.Paths, *config.Config, error) {
+	paths := config.NewPaths(config.ResolveWorkdir(flags.WorkDir))
+
+	if flags.ZeroCfg {
+		slog.Warn("proxy runs in zero configuration mode")
+
+		cfg, err := config.NewZeroCfg(flags)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		return paths, cfg, nil
+	}
+
+	if _, err := os.Stat(paths.Home); err != nil {
+		return nil, nil, err
+	}
 
 	cfgPath, err := paths.GetConfigPath("")
 	if err != nil {
 		return paths, nil, err
 	}
 
-	cfg, err := config.LoadWithFlags(cfgPath, pf)
+	cfg, err := config.LoadWithFlags(cfgPath, flags)
 	if err != nil {
 		return paths, nil, err
 	}
@@ -195,9 +240,12 @@ func initConfig(pf config.ProxyFlags) (*config.Paths, *config.Config, error) {
 	return paths, cfg, nil
 }
 
-func initWorkspace(paths *config.Paths, wf config.WorkspaceFlags) (*model.Workspace, error) {
-	workspace := model.NewWorkspace(wf.Workspace)
-	if wf.Workspace == "" {
+func initWorkspace(paths *config.Paths, cfg *config.Config, workspaceName string) (*model.Workspace, error) {
+	workspace := model.NewWorkspace(workspaceName)
+	if workspace.GetName() == "" {
+		return workspace, nil
+	}
+	if cfg.Proxy.ZeroConfigurationMode {
 		return workspace, nil
 	}
 
@@ -205,42 +253,58 @@ func initWorkspace(paths *config.Paths, wf config.WorkspaceFlags) (*model.Worksp
 		return nil, err
 	}
 
-	dbConnection := persistence.NewConnection(workspace.GetName(), filepath.Join(paths.Home, "db"))
-	if err := dbConnection.Open(); err != nil {
+	dbConn := persistence.NewConnection(workspace.GetName(), filepath.Join(paths.Home, "db"))
+	if err := dbConn.Open(); err != nil {
+		// Ignores if file not found. New db will be created.
+		if errors.Is(err, persistence.DBErrorFileNotFound) {
+			return workspace, nil
+		}
+
 		return nil, err
 	}
-	defer dbConnection.Close()
+	defer dbConn.Close()
 
-	repo := repository.NewWorkspaceRepo(database.New(dbConnection.DB))
+	repo := repository.NewWorkspaceRepo(database.New(dbConn.DB))
 	workspace, err := repo.LoadWorkspace(context.Background(), workspace.GetName())
 	if err != nil {
-		dbConnection.Close()
-
 		return nil, err
 	}
 
 	return workspace, nil
 }
 
-func runServer(s *http.Server) error {
+func runServer(cfg *config.Config, hub *broker.Hub, s *http.Server) error {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	serverErr := make(chan error, 1)
 
+	// HTTP
 	go func() {
-		err := s.ListenAndServe()
+		var err error
+		if cfg.TLS.Enabled {
+			slog.Info("proxy TLS is enabled with certificates", "cert", cfg.TLS.Cert, "key", cfg.TLS.Key)
+
+			err = s.ListenAndServeTLS(cfg.TLS.Cert, cfg.TLS.Key)
+		} else {
+			err = s.ListenAndServe()
+		}
+
 		if err != nil && err != http.ErrServerClosed {
 			serverErr <- err
 		}
 	}()
 
+	// GRPC
+	gRPCWrapper := grpc.NewServerWrapper(cfg, hub)
+	gRPCWrapper.Start(serverErr)
+
 	select {
 	case sig := <-interrupt:
-		slog.Info("Received signal, shutting down", "signal", sig)
+		slog.Info("received signal, shutting down", "signal", sig)
 
 	case err := <-serverErr:
-		slog.Error("Server crashed", "error", err)
+		slog.Error("server crashed", "error", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -248,54 +312,31 @@ func runServer(s *http.Server) error {
 
 	err := s.Shutdown(ctx)
 	if err != nil {
-		slog.Error("Server shutdown failed", "error", err)
+		slog.Error("HTTP server shutdown failed", "error", err)
 	} else {
-		slog.Info("Server exited")
+		slog.Info("HTTP server exited")
 	}
+
+	gRPCWrapper.Stop(ctx)
 
 	return err
 }
 
 func saveWorkspace(paths *config.Paths, w *model.Workspace) error {
-	if w.GetName() == "" {
-		inputName, err := cli.AskWithValidator(
-			cli.IO{
-				In:  bufio.NewReader(os.Stdin),
-				Out: os.Stdout,
-			},
-			"Enter workspace name (alpha-numeric, _, -):",
-			func(input string) error {
-				return model.WorkspaceName(input).Validate()
-			},
-		)
-		if err != nil && !errors.Is(err, io.EOF) {
-			return err
-		}
-
-		slog.Info("Workspace name provided by user", "name", inputName)
-
-		if w.GetName() != inputName {
-			w.Name = model.WorkspaceName(inputName)
-		}
+	if err := w.Name.Validate(); err != nil {
+		return fmt.Errorf("cannot save workspace with invali name: %w", err)
 	}
 
 	dbConn := persistence.NewConnection(w.GetName(), filepath.Join(paths.Home, "db"))
-	err := dbConn.Open()
+	err := dbConn.OpenOrCreate()
 	if err != nil {
-		if errors.Is(err, persistence.DBErrorFileNotFound) {
-			if err := dbConn.Create(); err != nil {
-				return fmt.Errorf("create db: %w", err)
-			}
-		} else {
-			return err
-		}
+		return err
 	}
-
 	defer dbConn.Close()
 
-	slog.Debug("Workspace is going to be saved under a name", "name", w.GetName())
+	slog.Debug("workspace is going to be saved under a name", "name", w.GetName())
 
-	err = dbcommand.TransactionalSaveWorkspace(context.Background(), dbConn.DB, w)
+	err = dbcommand.UpsertWorkspaceCommand(context.Background(), dbConn.DB, w)
 	if err != nil {
 		return err
 	}

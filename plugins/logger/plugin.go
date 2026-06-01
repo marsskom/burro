@@ -37,41 +37,41 @@ func (p *LoggerPlugin) Init(rt pluginapi.Runtime, cfg any) error {
 }
 
 func (p *LoggerPlugin) OnConnect(ctx *model.RequestContext) error {
-	p.log(slog.LevelDebug, "Trying to connect", ctx)
+	p.log(slog.LevelDebug, "trying to connect", ctx)
 
 	return nil
 }
 
 func (p *LoggerPlugin) OnRequest(ctx *model.RequestContext) error {
-	p.log(slog.LevelInfo, "Request received", ctx)
+	p.log(slog.LevelInfo, "request received", ctx)
 
 	return nil
 }
 
 func (p *LoggerPlugin) OnResponse(ctx *model.RequestContext) error {
-	p.log(slog.LevelInfo, "Response received", ctx)
+	p.log(slog.LevelInfo, "response received", ctx)
 
 	return nil
 }
 
 func (p *LoggerPlugin) OnError(ctx *model.RequestContext, err error) error {
-	p.log(slog.LevelError, fmt.Sprintf("Error occurred: %v", err), ctx)
+	p.log(slog.LevelError, fmt.Sprintf("error occurred: %v", err), ctx)
 
 	return nil
 }
 
 func (p *LoggerPlugin) OnClose(ctx *model.RequestContext) error {
-	p.log(slog.LevelDebug, "Connection closed", ctx)
+	p.log(slog.LevelDebug, "connection closed", ctx)
 
 	return nil
 }
 
 func (p *LoggerPlugin) log(level slog.Level, msg string, ctx *model.RequestContext) {
 	args := []any{
-		"ID", ctx.ID,
-		"StartTime", ctx.StartTime,
-		"State", ctx.State.Load(),
-		"Metadata", ctx.Metadata,
+		"Context ID", ctx.ID,
+		"Context StartTime", ctx.StartTime,
+		"Context State", ctx.State.Load(),
+		"Context Metadata", ctx.Metadata,
 	}
 
 	if ctx.Request != nil {

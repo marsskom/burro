@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 	"sync"
 )
@@ -57,7 +58,10 @@ func (kv *KeyValue) List(prefix string) (map[string][]byte, error) {
 	defer kv.mu.RUnlock()
 
 	if prefix == "" {
-		return kv.storage, nil
+		out := make(map[string][]byte)
+		maps.Copy(out, kv.storage)
+
+		return out, nil
 	}
 
 	out := make(map[string][]byte)
