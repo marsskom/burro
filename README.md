@@ -29,6 +29,27 @@ Burro (pronounced the same as word "burrow" /ˈbʌr.əʊ/) is a modular security
 
 ---
 
+## Quick Command Reference
+
+| Command                      | Description                                    | Example                                |
+| ---------------------------- | ---------------------------------------------- | -------------------------------------- |
+| `burro proxy`                | Start HTTP proxy using runtime config          | `burro proxy`                          |
+| `burro proxy -z <addr>`      | Run proxy in zero-config mode                  | `burro proxy -z localhost:8080`        |
+| `burro proxy -w <name>`      | Run proxy with workspace persistence           | `burro proxy -w test-session`          |
+| `burro serve <addr> <dir>`   | Start static file server                       | `burro serve localhost:8888 ./runtime` |
+| `burro cert init`            | Generate CA certificate for TLS interception   | `burro cert init`                      |
+| `burro cert generate [host]` | Generate host certificate (default: localhost) | `burro cert generate localhost`        |
+| `burro proxy -v`             | Increase log verbosity (info/debug)            | `burro proxy -v`                       |
+| `burro proxy -vv`            | Enable debug verbosity                         | `burro proxy -vv`                      |
+| `burro proxy -vvv`           | Maximum verbosity (same as `-vv`)              | `burro proxy -vvv`                     |
+| `make build`                 | Build Burro binary                             | `make build`                           |
+| `make browser`               | Launch Chromium configured for testing         | `make browser`                         |
+| `make ca-install`            | Install CA into system trust store (macOS)     | `make ca-install`                      |
+| `make ca-remove`             | Remove CA from system trust store              | `make ca-remove`                       |
+| `make ca-find`               | Check if CA is installed in system             | `make ca-find`                         |
+
+---
+
 ## Configuration
 
 Main Burro directory is `runtime`.
@@ -84,13 +105,15 @@ plugins:
 
 ---
 
-## Zero Configuration Mode
+## Zero configuration mode
 
 You may run burro as standalone binary without runtime directory in zero configuratio mode (`-z` flag).
 
+> In zero configuration mode Burro only runs logger to log the requests.
+
 For this mode you must specify listen address since there are no defualt values: `burro proxy -z localhost:8080`.
 
-Other flags is optional. For example, gRPC will be disabled if not its listen address is not explicity set (`-g`).
+Other flags is optional. For example, gRPC will be disabled if its listen address is not explicity set (`-g`).
 
 For using CA certificates for proxy to connect with HTTPS sites you may specify both with `--ca-cert` and `--ca-key`.
 
@@ -326,3 +349,92 @@ type Plugin interface {
 ```
 
 For better understanding, please, look at any plugin under `plugins/` directory in details.
+
+## gRPC API
+
+Burro exposes an optional gRPC interface that can be enabled in the core configuration (or set in CLI flag):
+
+```yml
+grpc:
+  enabled: true
+  listen: localhost:7777
+```
+
+### Purpose
+
+The gRPC layer is intended as a lightweight control and observation channel over Burro’s runtime. It allows external clients to:
+
+- verify that Burro is running and responsive
+- subscribe to live HTTP traffic events
+- build external observers (e.g. UI dashboards, analyzers, security tooling)
+- integrate Burro into larger distributed systems
+
+It does not replace the proxy itself — it mirrors internal events in a structured, streaming-friendly way.
+
+### Core Concepts
+
+**1. Health Check (Ping)**
+
+A simple request-response method used to confirm that the gRPC service is alive and reachable.
+
+Typical use cases:
+
+- service discovery checks
+- monitoring systems (e.g. Prometheus-style health probes)
+- debugging connectivity issues
+
+It returns a minimal confirmation message and has no side effects.
+
+**2. Event Streaming (Subscribe)**
+
+The main feature of the gRPC API is a continuous stream of events representing HTTP traffic processed by Burro.
+
+When a client subscribes, it receives a live feed of request/response lifecycle events.
+
+### What is an Event?
+
+Each event represents a single HTTP transaction observed by the proxy. It contains both request and response metadata, making it possible to reconstruct the full lifecycle of a request.
+
+An event typically includes:
+
+- Identity and context
+  - unique request ID
+  - session ID (useful for grouping traffic sessions)
+- Request metadata
+  - protocol (HTTP/HTTPS)
+  - scheme, host, method, URL, path
+  - remote address
+  - headers, cookies, and query parameters (encoded as JSON)
+  - request body (raw bytes)
+- Lifecycle information
+  - start timestamp
+  - current state (e.g. in-progress, completed)
+  - whether the request is finished
+- Response metadata
+  - HTTP status code and status text
+  - response headers (JSON)
+  - response body (raw bytes)
+  - response size and protocol
+- Timing and tracking
+  - creation and update timestamps
+- Extensions
+  - metadata field for plugin-generated or internal auxiliary data
+
+### Design Notes
+
+The stream is append-only and real-time: events are pushed as they happen.
+Payloads are intentionally verbose to avoid multiple round trips when analyzing traffic.
+
+JSON-encoded fields (headers, cookies, query params) are used for flexibility and compatibility with external systems.
+
+Raw bodies are preserved to allow deep inspection, replay, or forensic analysis.
+
+### Typical Usage Scenarios
+
+This API is useful when building:
+
+- a custom UI similar to a lightweight Burp Suite dashboard
+- automated traffic analyzers or anomaly detectors
+- integration bridges to SIEM systems or logging pipelines
+- debugging tools that need live visibility into HTTP traffic
+- plugin-like external services that do not run inside Burro core
