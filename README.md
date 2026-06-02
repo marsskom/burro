@@ -438,3 +438,9 @@ This API is useful when building:
 - integration bridges to SIEM systems or logging pipelines
 - debugging tools that need live visibility into HTTP traffic
 - plugin-like external services that do not run inside Burro core
+
+---
+
+## `.gitlab`
+
+This directory contains GitLab issue, merge request, and description templates used across the project.
