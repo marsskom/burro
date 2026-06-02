@@ -61,6 +61,7 @@ func init() {
 
 func serve(addr, dir string) error {
 	handler := http.FileServer(http.Dir(dir))
+	handler = loggingMiddleware(handler)
 
 	s := &http.Server{
 		Addr:    addr,
@@ -106,4 +107,21 @@ func serve(addr, dir string) error {
 	}
 
 	return err
+}
+
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+
+		next.ServeHTTP(w, r)
+
+		slog.Info(
+			"serve request",
+			"remote", r.RemoteAddr,
+			"method", r.Method,
+			"path", r.URL.Path,
+			"user_agent", r.UserAgent(),
+			"duration", time.Since(start),
+		)
+	})
 }
