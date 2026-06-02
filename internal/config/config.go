@@ -38,10 +38,6 @@ func (p *Paths) GetConfigPath(explicit string) (string, error) {
 		return explicit, nil
 	}
 
-	if env := os.Getenv("BURRO_CONFIG"); env != "" {
-		return env, nil
-	}
-
 	path := filepath.Join(p.Home, "config.yml")
 	if _, err := os.Stat(path); err == nil {
 		return path, nil

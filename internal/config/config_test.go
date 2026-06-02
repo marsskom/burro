@@ -144,25 +144,6 @@ func TestGetConfigPath(t *testing.T) {
 		}
 	})
 
-	t.Run("env wins over default", func(t *testing.T) {
-		os.Setenv("BURRO_CONFIG", "/env/config.yml")
-		defer os.Unsetenv("BURRO_CONFIG")
-
-		paths := &Paths{
-			Home: "~",
-		}
-
-		got, err := paths.GetConfigPath("")
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if got != "/env/config.yml" {
-			t.Fatalf("expected env path, got %s", got)
-		}
-	})
-
 	t.Run("fallback to home directory / config.yml", func(t *testing.T) {
 		dir := t.TempDir()
 

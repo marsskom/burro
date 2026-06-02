@@ -25,6 +25,10 @@ Burro (pronounced the same as word "burrow" /ˈbʌr.əʊ/) is a modular security
 
 ---
 
+> Please, consider use `-h` in CLI for help with Burro since the toll is still under developemnt and the documentation may be outdated.
+
+---
+
 ## Configuration
 
 Main Burro directory is `runtime`.
@@ -37,10 +41,12 @@ You may override runtime directory via environment variable:
 BURRO_WORKDIR=runtime
 ```
 
+Or using cli flag `-d runtime`.
+
 Burro uses a main configuration file located at:
 
 ```text
-runtime/config.yml
+%workdir%/config.yml
 ```
 
 ---
@@ -49,25 +55,46 @@ runtime/config.yml
 
 ```yml
 core:
-  log_level: debug
-
+  log_level: error
   plugins:
     dir: "plugins"
     config: "config.yml"
 
 proxy:
-  port: 8080
-  host: 0.0.0.0
+  listen: localhost:8080
+
+grpc:
+  enabled: true
+  listen: localhost:7777
+
+tls:
+  enabled: false
+  cert:
+  key:
 
 plugins:
   logger:
 
-  policy:
+  policy: # separate config
 
   harexport:
     file: "%session%-%datetime%.har"
     override: true
 ```
+
+---
+
+## Zero Configuration Mode
+
+You may run burro as standalone binary without runtime directory in zero configuratio mode (`-z` flag).
+
+For this mode you must specify listen address since there are no defualt values: `burro proxy -z localhost:8080`.
+
+Other flags is optional. For example, gRPC will be disabled if not its listen address is not explicity set (`-g`).
+
+For using CA certificates for proxy to connect with HTTPS sites you may specify both with `--ca-cert` and `--ca-key`.
+
+Same for TLS certificates. If you have them for the host where you run Burro, you may specify both with `--tls-cert` and `--tls-key` to use HTTPS connection to the proxy: `https://localhost:8443/`.
 
 ---
 
@@ -105,11 +132,21 @@ This allows separation of:
 - global orchestration config
 - plugin-specific logic config
 
-Please, pay attention that all paths in plugin section works under `runtime` directory.
+Please, pay attention that all paths in plugin section works under `%workdir%` directory.
 
-Each plugin has an access to `runtime/artifacts/%plugin-name%` directory as file storage.
+Each plugin has an access to `%workdir%/artifacts/%plugin-name%` directory in a role of the files storage.
 
-And `runtime/plugins/%plugin-name%` as data storage where it can only read files.
+And `%workdir%/plugins/%plugin-name%` as configuration's data storage from where it can only read files. For example, whilelist of domains in Policy plugin.
+
+---
+
+Plugins directory name `plugins` and config name `config.yml` may be changed in global configuration:
+
+```yml
+plugins:
+  dir: "plugins"
+  config: "config.yml"
+```
 
 ---
 
@@ -165,31 +202,27 @@ Binary will be available in project root as `burro`.
 
 ### Run proxy
 
-You may just run proxy without building it:
+`burro proxy` runs proxy with default `runtime` directory as workdir. Load configuration from this directory for itself and plugins.
 
-- `make urn` - runs proxy without saving any artifacts (db, plugins' files)
-- `make run` - runs new empty session, but at the end you may save it, even to existed one
-- `make run ARGS="-w %workspace-name%"` - loads workspace from db and continue session under this workspace
+If you want to save working session use `-w %workspace-name%`. After you finished with Burro with `CTRL+C` it saves all the requests into `%workdir%/db/%workspace-name%.sqlite3`.
 
-Or use raw commands:
+And you may reuse workspace in future to add more sessions to it.
 
-- `go run ./cmd/burro proxy` - (`burro proxy`) - same as `make urn`
-- `go run ./cmd/burro proxy -i` - (`burro proxy -i`) - same as `make run`
-- `go run ./cmd/burro proxy -i -w %workspace-name%` - (`burro proxy -i -w %workspace-name`%) - same as `make run ARGS="-w %workspace-name%"` (flag `-i` is optional, depends do you want to save a session afterwards)
+### Logs
 
-All those commands use `runtime` directory.
+By default, configuration defines logger level in `config.yml`, zero configuration mode defines `info` level.
+
+If you want to increase verbosity you may use `-v`, `-vv` (`-vvv` is the same).
 
 ### Artifacts
 
-By default, Burro on exit (`CTRL+C`) asks if you want to save session.
+By default, Burro on exit (`CTRL+C`) saves workspace into DB if workspace name ws set.
 
-The session is a basically workspace in Burro and if you agreed to save it and provided a workspace's name it will create SQLite db file with this name under `runtime/db/` directory.
+Moreover, some plugins also may create some artifacts - `%workdir%/artifacts/`.
 
-Moreover, some plugins also may create some artifacts - `runtime/artifacts/`.
+For instance, HAR export plugin creates HAR report file under `%workdir%/artifacts/harexport/` directory, by default.
 
-For instance, HAR export plugin creates HAR report file under `runtime/artifacts/harexport/` directory by default.
-
-Even you chose do not save workspace HAR plugin creates artifacts, since it must be configured in config file.
+Basically even you didn't provide workspace name, HAR plugin writes artifacts according to its configuration settings: `enabled: true`.
 
 ### Browser usage
 
@@ -197,7 +230,7 @@ Of course, you may use raw `curl` just to test Burro.
 
 However, `make browser` command provides to you Chromium browser, ready to go.
 
-The only requirement here is - Chromium must be installed in your system already.
+The only requirement here is - Chromium must be installed in your system.
 
 ---
 
@@ -207,7 +240,11 @@ No one modern web portal works without HTTPS, means you Burro need a CA certific
 
 To generate CA certificates use:
 
-- `make certs` - (`burro cert init`) - generates certificates (puts under `runtime/certs` directory)
+```shell
+burro cert init
+```
+
+By default it writes them to `%workdir%/certs/ca.{pem|key}` but you may specify another path with CLI flgas: `--dst-cert` and `--dst-key`.
 
 To operate CA in MacOS you may consider following commands in the `Makefile`:
 
@@ -217,13 +254,44 @@ To operate CA in MacOS you may consider following commands in the `Makefile`:
 
 For other OS, please, read the respective documentation.
 
+### Host Certificate
+
+If you need TLS certificates for `localhost`, as an example, and generated CA pair for Burro already added as trusted you may generate certificates for `hostname`:
+
+```shell
+burro cert generate [host]
+```
+
+By default, `host` is `localhost`.
+
+To manage this command more precisely you may utilise CLI flags:
+
+- `--src-cert` - path to CA certificate
+- `--src-key` - path to CA key
+- `--dst-cert` - where to save host certificate
+- `--dst-key` - where to save host key
+
+---
+
+## File server
+
+Burro also supports simple file server out of the box:
+
+```shell
+burro serve localhost:8888 ./runtime
+```
+
+Nothing special at all.
+
+Additionally you may set-up HTTPS file server by specifying host certificates in CLI flags: `--cert` (`-c`) and `--key` (`-k`).
+
 ---
 
 ## Docker
 
 `Makefile` provides additional docker commands as well.
 
-If you just want to try Burro in isolated environment.
+If you just want to try Burro in an isolated environment.
 
 ---
 
@@ -241,7 +309,7 @@ All plugins that use native hooks are located under `plugins` directory.
 
 You may create a directory for your own plugin, also place a separate `config.yml` file into the directory.
 
-But not forget to add plugin name (directory name) into global `runtime/config.yml` as well:
+But not forget to add plugin name (directory name) into global `%workdir%/config.yml` as well:
 
 ```yml
 plugins:
@@ -254,143 +322,7 @@ The `Plugin` is basically an interface (`./internal/plugin/plugin.go`):
 
 ```golang
 type Plugin interface {
-	Name() string
-	Init(rt pluginapi.Runtime, cfg any) error
-}
+ ...
 ```
 
-Therefore here some requirements for each plugin for now.
-
-Let's look at Policy plugin as an example:
-
-```golang
-func init() {
-	plugin.Register("policy", func() plugin.Plugin {
-		return New()
-	})
-}
-
-type PolicyConfig struct {
-	Priority  int    `yaml:"priority"`
-	Whitelist string `yaml:"whitelist"`
-	Blacklist string `yaml:"blacklist"`
-}
-
-type PolicyPlugin struct {
-	priority  int
-	whitelist []string
-	blacklist []string
-
-	rt pluginapi.Runtime
-}
-
-func New() *PolicyPlugin {
-	return &PolicyPlugin{}
-}
-
-func (p *PolicyPlugin) Priority() int {
-	return p.priority
-}
-
-func (p *PolicyPlugin) Name() string {
-	return "policy"
-}
-
-func (p *PolicyPlugin) Init(rt pluginapi.Runtime, cfg any) error {
-	p.rt = rt
-
-	p.rt.Log().Debug("Policy plugin is going to init with config", "config", cfg)
-
-	var config PolicyConfig
-	if err := plugin.DecodeYAML(cfg, &config); err != nil {
-		return fmt.Errorf("Policy Plugin Init: cannot read plugin config: %w", err)
-	}
-
-	p.priority = config.Priority
-
-	if config.Whitelist != "" {
-		f, err := p.rt.Data().Read(config.Whitelist)
-		if err != nil {
-			return fmt.Errorf("Policy Plugin Init: cannot read whitelist file: %w", err)
-		}
-
-		whitelist, err := LoadDomains(f)
-		if err != nil {
-			f.Close()
-
-			return fmt.Errorf("Policy Plugin Init: cannot load whitelist: %w", err)
-		}
-		f.Close()
-
-		p.whitelist = whitelist
-	}
-
-	if config.Blacklist != "" {
-		f, err := p.rt.Data().Read(config.Blacklist)
-		if err != nil {
-			return fmt.Errorf("Policy Plugin Init: cannot read blacklist file: %w", err)
-		}
-
-		blacklist, err := LoadDomains(f)
-		if err != nil {
-			f.Close()
-
-			return fmt.Errorf("Policy Plugin Init: cannot load blacklist: %w", err)
-		}
-		f.Close()
-
-		p.blacklist = blacklist
-	}
-
-	return nil
-}
-
-func (p *PolicyPlugin) OnRequest(ctx *model.RequestContext) error {
-	if len(p.whitelist) > 0 && Match(ctx.Request.Host, p.whitelist) {
-		p.rt.Log().Debug("Request host was found in whitelist", "host", ctx.Request.Host)
-
-		return nil
-	}
-
-	if len(p.blacklist) > 0 && Match(ctx.Request.Host, p.blacklist) {
-		p.rt.Log().Debug("Request host was found in blacklist", "host", ctx.Request.Host)
-
-		ctx.Finish(response.Forbidden())
-	}
-
-	return nil
-}
-```
-
-- `init()` function that registers plugin under the same name as directory and its name in `config.yml`
-- Plugin has its struct with fields, aldo may have some config struct if it depends on config fields
-- `* Name()` function returns the same plugin name
-- `* Init()` function sets plugin's settings according to its config
-- Optional `* Priority()` and `* Enabled()` functions are common for all plugins, if not defined, default values are used (`./internal/plugin/priority.go`)
-- And the hooks' functions only on those that the plugin expects, like `* OnRequest()` in this case
-
-### Hooks
-
-All hooks available in `./internal/plugin/plugin.go`:
-
-```golang
-type ConnectHook interface {
-	OnConnect(ctx *model.RequestContext) error
-}
-
-type RequestHook interface {
-	OnRequest(ctx *model.RequestContext) error
-}
-
-type ResponseHook interface {
-	OnResponse(ctx *model.RequestContext) error
-}
-
-type ErrorHook interface {
-	OnError(ctx *model.RequestContext, err error) error
-}
-
-type CloseHook interface {
-	OnClose(ctx *model.RequestContext) error
-}
-```
+For better understanding, please, look at any plugin under `plugins/` directory in details.

@@ -135,14 +135,13 @@ func run() error {
 			return err
 		}
 
-		slog.Warn("CA certificates weren't loaded (ignore for zero configuration mode)", "cert", caCertPath, "key", caKeyPath)
+		slog.Warn("CA certificates weren't loaded (ignore for zero configuration mode)", "cert", caCertPath, "key", caKeyPath, "err", err)
 	} else {
 		slog.Info("CA certificates were loaded", "cert", caCertPath, "key", caKeyPath)
 	}
 
 	// Broker.
 	brokerHub := broker.NewHub()
-	// TODO: try run gRPC server, if we have an error with zro cfg mode - ignore an error
 
 	// Plugins.
 	pm := plugin.NewManager(brokerHub)
