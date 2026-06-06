@@ -63,7 +63,7 @@ func NewProxy(
 }
 
 func (px *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := model.NewCtx(px.session, r.WithContext(
+	ctx := model.NewCtx(px.session, px.traceTimings, r.WithContext(
 		httptrace.WithClientTrace(r.Context(), px.traceTimings.AttachTrace()),
 	))
 	px.session.AddRequest(ctx)
@@ -88,9 +88,13 @@ func (px *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodConnect {
-		err = px.handleHTTPS(w, ctx)
+		ctx.SetTunnel(true)
+		ctx.SetPrototol(model.TUNNEL)
+		err = px.handleTunnel(w, ctx)
 	} else {
-		err = px.handleHTTP(w, ctx)
+		ctx.SetTunnel(false)
+		ctx.SetPrototol(model.HTTP)
+		err = px.handleRawHTTP(w, ctx)
 	}
 
 	if err != nil {

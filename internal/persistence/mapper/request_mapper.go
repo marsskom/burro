@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"net/http/httputil"
 
 	"gitlab.com/marsskom/burro/internal/database"
 	"gitlab.com/marsskom/burro/internal/model"
@@ -29,20 +28,6 @@ func ToStoredRequest(requestContext *model.RequestContext) (database.Request, er
 			Valid:  true,
 			String: m,
 		}
-	}
-
-	requestRaw, err := httputil.DumpRequest(requestContext.Request, false)
-	if err != nil {
-		return database.Request{}, fmt.Errorf("cannot dump request: %w", err)
-	}
-
-	var responseRaw []byte
-	if requestContext.Response != nil {
-		resRaw, err := httputil.DumpResponse(requestContext.Response, false)
-		if err != nil {
-			return database.Request{}, fmt.Errorf("cannot dump response: %w", err)
-		}
-		responseRaw = resRaw
 	}
 
 	respData := struct {
@@ -132,23 +117,8 @@ func ToStoredRequest(requestContext *model.RequestContext) (database.Request, er
 	}
 
 	return database.Request{
-		ID:            requestContext.ID,
-		SessionID:     requestContext.Session.ID,
-		Proto:         requestContext.RequestSnapshot.Proto,
-		Host:          requestContext.RequestSnapshot.Host,
-		Scheme:        requestContext.RequestSnapshot.Scheme,
-		Url:           requestContext.RequestSnapshot.URL,
-		Path:          requestContext.RequestSnapshot.Path,
-		QueryParams:   queryParams,
-		Method:        requestContext.RequestSnapshot.Method,
-		Headers:       headers,
-		Cookies:       cookiesAsText,
-		ContentLength: int64(requestContext.RequestSnapshot.ContentLength),
-		RemoteAddr:    requestContext.RequestSnapshot.RemoteAddr,
-		RequestBody:   requestContext.RequestSnapshot.Body,
-
-		RequestRaw: requestRaw,
-
+		ID:        requestContext.ID,
+		SessionID: requestContext.Session.ID,
 		StartTime: requestContext.StartTime.UnixMilli(),
 		State: sql.NullInt64{
 			Valid: true,
@@ -156,16 +126,6 @@ func ToStoredRequest(requestContext *model.RequestContext) (database.Request, er
 		},
 		IsFinished: isFinished,
 		Metadata:   mtdata,
-
-		RespStatus:        respData.Status,
-		RespStatusCode:    respData.StatusCode,
-		RespProto:         respData.Proto,
-		RespHeaders:       respData.Headers,
-		RespContentLength: respData.ContentLength,
-		ResponseBody:      respData.Body,
-
-		ResponseRaw: responseRaw,
-
 		CreatedAt: sql.NullInt64{
 			Valid: true,
 			Int64: requestContext.CreatedAt.UnixMilli(),
@@ -174,5 +134,25 @@ func ToStoredRequest(requestContext *model.RequestContext) (database.Request, er
 			Valid: true,
 			Int64: requestContext.UpdatedAt.UnixMilli(),
 		},
+
+		ReqProto:         requestContext.RequestSnapshot.Proto,
+		ReqHost:          requestContext.RequestSnapshot.Host,
+		ReqScheme:        requestContext.RequestSnapshot.Scheme,
+		ReqUrl:           requestContext.RequestSnapshot.URL,
+		ReqPath:          requestContext.RequestSnapshot.Path,
+		ReqQueryParams:   queryParams,
+		ReqMethod:        requestContext.RequestSnapshot.Method,
+		ReqHeaders:       headers,
+		ReqCookies:       cookiesAsText,
+		ReqContentLength: int64(requestContext.RequestSnapshot.ContentLength),
+		ReqRemoteAddr:    requestContext.RequestSnapshot.RemoteAddr,
+		ReqBody:          requestContext.RequestSnapshot.Body,
+
+		ResStatus:        respData.Status,
+		ResStatusCode:    respData.StatusCode,
+		ResProto:         respData.Proto,
+		ResHeaders:       respData.Headers,
+		ResContentLength: respData.ContentLength,
+		ResBody:          respData.Body,
 	}, nil
 }

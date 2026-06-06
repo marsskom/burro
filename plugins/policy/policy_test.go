@@ -70,6 +70,7 @@ func TestPolicy_WhitelistAllows(t *testing.T) {
 		Request: &http.Request{
 			Host: "api.example.com",
 		},
+		Timings: &model.Timings{},
 	}
 
 	err := p.OnRequest(ctx)
@@ -92,6 +93,7 @@ func TestPolicy_BlacklistBlocks(t *testing.T) {
 		Request: &http.Request{
 			Host: "api.example.com",
 		},
+		Timings: &model.Timings{},
 	}
 
 	err := p.OnRequest(ctx)
@@ -115,6 +117,7 @@ func TestPolicy_WhitelistPriority(t *testing.T) {
 		Request: &http.Request{
 			Host: "api.example.com",
 		},
+		Timings: &model.Timings{},
 	}
 
 	_ = p.OnRequest(ctx)

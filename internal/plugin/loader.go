@@ -2,22 +2,22 @@ package plugin
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 
 	"gitlab.com/marsskom/burro/internal/config"
+	"gitlab.com/marsskom/burro/internal/logger"
 	rt "gitlab.com/marsskom/burro/internal/runtime"
 	"gopkg.in/yaml.v3"
 )
 
 func LoadPlugins(paths *config.Paths, cfg *config.Config, pm *Manager) error {
 	for name, pluginCfg := range cfg.Plugins {
-		slog.Debug("try to init plugin", "plugin", name)
+		logger.Debug("try to init plugin", "plugin", name)
 
 		factory, ok := registry[name]
 		if !ok {
-			slog.Warn("plugin is not in registry", "plugin", name)
+			logger.Warn("plugin is not in registry", "plugin", name)
 
 			continue
 		}
@@ -51,10 +51,10 @@ func LoadPlugins(paths *config.Paths, cfg *config.Config, pm *Manager) error {
 
 func resolvePluginConfig(home string, cfg config.CorePluginsConfig, name string) (any, error) {
 	path := filepath.Join(home, cfg.Dir, name, cfg.Config)
-	slog.Debug("try to find separate plugin config file", "path", path)
+	logger.Debug("try to find separate plugin config file", "path", path)
 
 	if _, err := os.Stat(path); err == nil {
-		slog.Info("separate plugin config has been found and is going to be used", "plugin", name, "path", path)
+		logger.Info("separate plugin config has been found and is going to be used", "plugin", name, "path", path)
 
 		data, err := os.ReadFile(path)
 		if err != nil {
@@ -69,7 +69,7 @@ func resolvePluginConfig(home string, cfg config.CorePluginsConfig, name string)
 		return pCfg, nil
 	}
 
-	slog.Debug("separate config for plugin wasn't found", "plugin", name, "path", path)
+	logger.Debug("separate config for plugin wasn't found", "plugin", name, "path", path)
 
 	return nil, nil
 }

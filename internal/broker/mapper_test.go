@@ -36,21 +36,21 @@ func baseCtx() *model.RequestContext {
 	}
 }
 
-func TestToBrokerEvent_MissingID(t *testing.T) {
+func TestToHTTPBrokerEvent_MissingID(t *testing.T) {
 	ctx := baseCtx()
 	ctx.ID = ""
 
-	_, err := ToBrokerEvent(EventRequest, ctx)
+	_, err := ToHTTPBrokerEvent(EventRequest, ctx)
 	if err == nil {
 		t.Fatal("expected error for missing ID")
 	}
 }
 
-func TestToBrokerEvent_NoRequestSnapshot(t *testing.T) {
+func TestToHTTPBrokerEvent_NoRequestSnapshot(t *testing.T) {
 	ctx := baseCtx()
 	ctx.RequestSnapshot = nil
 
-	ev, err := ToBrokerEvent(EventRequest, ctx)
+	ev, err := ToHTTPBrokerEvent(EventRequest, ctx)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -59,16 +59,16 @@ func TestToBrokerEvent_NoRequestSnapshot(t *testing.T) {
 		t.Fatalf("wrong ID: %s", ev.ID)
 	}
 
-	if ev.Host != "example.com" {
-		t.Fatalf("expected host from Request: %s", ev.Host)
+	if ev.HTTP.Host != "example.com" {
+		t.Fatalf("expected host from Request: %s", ev.HTTP.Host)
 	}
 
-	if ev.QueryParams != "" {
+	if ev.HTTP.QueryParams != "" {
 		t.Fatalf("expected empty query params in fallback")
 	}
 }
 
-func TestToBrokerEvent_WithRequestSnapshot(t *testing.T) {
+func TestToHTTPBrokerEvent_WithRequestSnapshot(t *testing.T) {
 	ctx := baseCtx()
 
 	ctx.RequestSnapshot = &model.RequestSnapshot{
@@ -87,46 +87,46 @@ func TestToBrokerEvent_WithRequestSnapshot(t *testing.T) {
 		Cookies:     make([]*model.CookieSnapshot, 0),
 	}
 
-	ev, err := ToBrokerEvent(EventRequest, ctx)
+	ev, err := ToHTTPBrokerEvent(EventRequest, ctx)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if ev.Method != "POST" {
-		t.Fatalf("expected POST, got %s", ev.Method)
+	if ev.HTTP.Method != "POST" {
+		t.Fatalf("expected POST, got %s", ev.HTTP.Method)
 	}
 
-	if ev.Scheme != "https" {
+	if ev.HTTP.Scheme != "https" {
 		t.Fatalf("expected https scheme")
 	}
 
-	if ev.ContentLength != 10 {
+	if ev.HTTP.ContentLength != 10 {
 		t.Fatalf("wrong content length")
 	}
 
-	if len(ev.RequestBody) != 5 {
+	if len(ev.HTTP.RequestBody) != 5 {
 		t.Fatalf("expected body length 5")
 	}
 }
 
-func TestToBrokerEvent_MetadataConversion(t *testing.T) {
+func TestToHTTPBrokerEvent_MetadataConversion(t *testing.T) {
 	ctx := baseCtx()
 
 	ctx.Metadata = map[string]any{
 		"k": "v",
 	}
 
-	ev, err := ToBrokerEvent(EventRequest, ctx)
+	ev, err := ToHTTPBrokerEvent(EventRequest, ctx)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if ev.Metadata == "" {
+	if ev.HTTP.Metadata == "" {
 		t.Fatal("expected metadata string")
 	}
 }
 
-func TestToBrokerEvent_WithResponseSnapshot(t *testing.T) {
+func TestToHTTPBrokerEvent_WithResponseSnapshot(t *testing.T) {
 	ctx := baseCtx()
 
 	ctx.RequestSnapshot = &model.RequestSnapshot{
@@ -152,16 +152,16 @@ func TestToBrokerEvent_WithResponseSnapshot(t *testing.T) {
 		Headers:       map[string][]string{"r": {"1"}},
 	}
 
-	ev, err := ToBrokerEvent(EventRequest, ctx)
+	ev, err := ToHTTPBrokerEvent(EventRequest, ctx)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if ev.ResponseStatusCode != 200 {
-		t.Fatalf("expected 200, got %d", ev.ResponseStatusCode)
+	if ev.HTTP.ResponseStatusCode != 200 {
+		t.Fatalf("expected 200, got %d", ev.HTTP.ResponseStatusCode)
 	}
 
-	if len(ev.ResponseBody) != 3 {
+	if len(ev.HTTP.ResponseBody) != 3 {
 		t.Fatal("wrong response body")
 	}
 }

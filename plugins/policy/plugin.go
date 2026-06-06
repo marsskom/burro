@@ -100,7 +100,13 @@ func (p *PolicyPlugin) OnRequest(ctx *model.RequestContext) error {
 	if len(p.blacklist) > 0 && Match(ctx.Request.Host, p.blacklist) {
 		p.rt.Log().Debug("request host was found in blacklist", "host", ctx.Request.Host)
 
-		ctx.Finish(response.Forbidden())
+		resp := response.Forbidden()
+		snapshot, err := model.MakeResponseSnapshot(resp, ctx.Timings)
+		if err != nil {
+			return fmt.Errorf("cannot create response snapshot: %w", err)
+		}
+
+		ctx.Finish(response.Forbidden(), snapshot)
 	}
 
 	return nil

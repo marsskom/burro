@@ -144,7 +144,7 @@ func TestManager_EmitRequest(t *testing.T) {
 
 	r := httptest.NewRequest("GET", "http://example.com", nil)
 
-	err := m.EmitRequest(model.NewCtx(model.NewSession(), r))
+	err := m.EmitRequest(model.NewCtx(model.NewSession(), &model.Timings{}, r))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -274,7 +274,7 @@ func TestManager_EmitRequest_WithHub(t *testing.T) {
 
 	r := httptest.NewRequest("GET", "http://example.com", nil)
 
-	err := m.EmitRequest(model.NewCtx(model.NewSession(), r))
+	err := m.EmitRequest(model.NewCtx(model.NewSession(), &model.Timings{}, r))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

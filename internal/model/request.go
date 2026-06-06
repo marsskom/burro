@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
 	"maps"
 	"net/http"
 	"slices"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gitlab.com/marsskom/burro/internal/logger"
 )
 
 type RequestState int
@@ -26,19 +26,34 @@ const (
 	StateFinished
 	StateCanceled
 	StateFailed
+	StateUpgrading
+	StateTunnel
 )
 
 var transitions = map[RequestState][]RequestState{
 	StateReceived:   {StatePrepared, StateCanceled, StateFailed},
 	StatePrepared:   {StateForwarding, StateCanceled, StateFailed},
-	StateForwarding: {StateResponding, StateCanceled, StateFailed},
+	StateForwarding: {StateResponding, StateCanceled, StateFailed, StateUpgrading},
+	StateUpgrading:  {StateTunnel, StateFailed},
+	StateTunnel:     {StateFinished, StateFailed},
 	StateResponding: {StateFinished},
 }
+
+type Protocol string
+
+const (
+	TUNNEL Protocol = "TUNNEL"
+	HTTP   Protocol = "HTTP"
+	HTTPS  Protocol = "HTTPS"
+	WS     Protocol = "WS"
+	WSS    Protocol = "WSS"
+)
 
 type RequestContext struct {
 	ID        string
 	StartTime time.Time
 	State     atomic.Int32
+	Protocol  Protocol
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -56,12 +71,15 @@ type RequestContext struct {
 
 	Metadata map[string]any
 
+	IsTunnel   bool
 	IsFinished bool
+
+	Timings *Timings
 
 	mu sync.RWMutex
 }
 
-func NewCtx(session *Session, r *http.Request) *RequestContext {
+func NewCtx(session *Session, timings *Timings, r *http.Request) *RequestContext {
 	base := r.Context()
 
 	ctx, cancel := context.WithTimeout(base, 30*time.Second)
@@ -75,10 +93,11 @@ func NewCtx(session *Session, r *http.Request) *RequestContext {
 		Request:   r,
 		Context:   ctx,
 		Cancel:    cancel,
+		Timings:   timings,
 	}
 }
 
-func NewCtxFromParent(parent *RequestContext, r *http.Request) *RequestContext {
+func NewCtxFromParent(parent *RequestContext, timings *Timings, r *http.Request) *RequestContext {
 	parent.mu.RLock()
 	defer parent.mu.RUnlock()
 
@@ -96,6 +115,7 @@ func NewCtxFromParent(parent *RequestContext, r *http.Request) *RequestContext {
 		Request:   r,
 		Context:   ctx,
 		Cancel:    cancel,
+		Timings:   timings,
 		Metadata:  mtdata,
 	}
 }
@@ -120,11 +140,36 @@ func (c *RequestContext) Transition(next RequestState) error {
 	return nil
 }
 
-func (c *RequestContext) Finish(resp *http.Response) {
+func (c *RequestContext) SetPrototol(p Protocol) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.Protocol = p
+	c.UpdatedAt = time.Now()
+}
+
+func (c *RequestContext) SetTunnel(enabled bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.IsTunnel = enabled
+	c.UpdatedAt = time.Now()
+}
+
+func (c *RequestContext) SetRequestSnapshot(reqSnapshot *RequestSnapshot) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.RequestSnapshot = reqSnapshot
+	c.UpdatedAt = time.Now()
+}
+
+func (c *RequestContext) Finish(resp *http.Response, respSnapshot *ResponseSnapshot) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	c.Response = resp
+	c.ResponseSnapshot = respSnapshot
 	c.IsFinished = true
 	c.UpdatedAt = time.Now()
 }
@@ -228,7 +273,7 @@ func MakeRequestSnapshot(r *http.Request) (*RequestSnapshot, error) {
 		Body:          body,
 	}
 
-	slog.Debug("request snapshot was created", "request", snapshot)
+	logger.Debug("request snapshot was created", "request", snapshot)
 
 	return snapshot, nil
 }
@@ -295,7 +340,7 @@ func MakeResponseSnapshot(res *http.Response, t *Timings) (*ResponseSnapshot, er
 		TimeWait:    t.FirstByte.Sub(t.WroteRequest),
 	}
 
-	slog.Debug("response snapshot was created", "response", snapshot)
+	logger.Debug("response snapshot was created", "response", snapshot)
 
 	return snapshot, nil
 }

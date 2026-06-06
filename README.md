@@ -41,7 +41,7 @@ Burro (pronounced the same as word "burrow" /ˈbʌr.əʊ/) is a modular security
 | `burro cert generate [host]` | Generate host certificate (default: localhost) | `burro cert generate localhost`        |
 | `burro proxy -v`             | Increase log verbosity (info/debug)            | `burro proxy -v`                       |
 | `burro proxy -vv`            | Enable debug verbosity                         | `burro proxy -vv`                      |
-| `burro proxy -vvv`           | Maximum verbosity (same as `-vv`)              | `burro proxy -vvv`                     |
+| `burro proxy -vvv`           | Maximum verbosity (with trace)                 | `burro proxy -vvv`                     |
 | `make build`                 | Build Burro binary                             | `make build`                           |
 | `make browser`               | Launch Chromium configured for testing         | `make browser`                         |
 | `make ca-install`            | Install CA into system trust store (macOS)     | `make ca-install`                      |
@@ -86,6 +86,7 @@ proxy:
 
 grpc:
   enabled: true
+  debug: false
   listen: localhost:7777
 
 tls:
@@ -235,7 +236,7 @@ And you may reuse workspace in future to add more sessions to it.
 
 By default, configuration defines logger level in `config.yml`, zero configuration mode defines `info` level.
 
-If you want to increase verbosity you may use `-v`, `-vv` (`-vvv` is the same).
+If you want to increase verbosity you may use `-v`, `-vv`, `-vvv`.
 
 ### Artifacts
 
@@ -357,6 +358,7 @@ Burro exposes an optional gRPC interface that can be enabled in the core configu
 ```yml
 grpc:
   enabled: true
+  debug: false
   listen: localhost:7777
 ```
 
@@ -395,30 +397,39 @@ When a client subscribes, it receives a live feed of request/response lifecycle 
 
 Each event represents a single HTTP transaction observed by the proxy. It contains both request and response metadata, making it possible to reconstruct the full lifecycle of a request.
 
+Or Event contains WebSocket message.
+
 An event typically includes:
 
 - Identity and context
   - unique request ID
   - session ID (useful for grouping traffic sessions)
-- Request metadata
-  - protocol (HTTP/HTTPS)
-  - scheme, host, method, URL, path
-  - remote address
-  - headers, cookies, and query parameters (encoded as JSON)
-  - request body (raw bytes)
-- Lifecycle information
-  - start timestamp
-  - current state (e.g. in-progress, completed)
-  - whether the request is finished
-- Response metadata
-  - HTTP status code and status text
-  - response headers (JSON)
-  - response body (raw bytes)
-  - response size and protocol
-- Timing and tracking
-  - creation and update timestamps
-- Extensions
-  - metadata field for plugin-generated or internal auxiliary data
+- HTTP/HTTPS:
+  - Request metadata
+    - protocol (HTTP/HTTPS)
+    - scheme, host, method, URL, path
+    - remote address
+    - headers, cookies, and query parameters (encoded as JSON)
+    - request body (raw bytes)
+  - Lifecycle information
+    - start timestamp
+    - current state (e.g. in-progress, completed)
+    - whether the request is finished
+  - Response metadata
+    - HTTP status code and status text
+    - response headers (JSON)
+    - response body (raw bytes)
+    - response size and protocol
+  - Timing and tracking
+    - creation and update timestamps
+  - Extensions
+    - metadata field for plugin-generated or internal auxiliary data
+- WebSocket:
+  - Direction (client -> server, server -> client)
+  - OP Code
+  - Data in bytes
+  - Data as text
+  - Timestamp of emitting
 
 ### Design Notes
 
@@ -438,6 +449,27 @@ This API is useful when building:
 - integration bridges to SIEM systems or logging pipelines
 - debugging tools that need live visibility into HTTP traffic
 - plugin-like external services that do not run inside Burro core
+
+### CLI flags
+
+If you want to run Burro in regular mode without gRPC, add `--no-grpc` flag.
+
+For debugging gRPC you may enable it in config:
+
+```yml
+grpc:
+  debug: true
+```
+
+Or pass flag `--grpc-d` to enable debug mode.
+
+Debug mode allows to you use something like `grpcurl`:
+
+```shell
+grpcurl -plaintext localhost:7777 burro.Burro/Subscribe
+```
+
+To catch raw events.
 
 ---
 

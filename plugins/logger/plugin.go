@@ -3,6 +3,7 @@ package logger
 import (
 	"fmt"
 	"log/slog"
+	"unicode/utf8"
 
 	"gitlab.com/marsskom/burro/internal/model"
 	"gitlab.com/marsskom/burro/internal/plugin"
@@ -62,6 +63,61 @@ func (p *LoggerPlugin) OnError(ctx *model.RequestContext, err error) error {
 
 func (p *LoggerPlugin) OnClose(ctx *model.RequestContext) error {
 	p.log(slog.LevelDebug, "connection closed", ctx)
+
+	return nil
+}
+
+func (p *LoggerPlugin) OnWSOpen(ctx *model.RequestContext) error {
+	p.log(slog.LevelDebug, "ws connection opened", ctx)
+
+	return nil
+}
+
+func (p *LoggerPlugin) OnWSMessage(ctx *model.RequestContext, msg *model.WSMessage) error {
+	dataPreview := formatWSData(msg)
+
+	p.log(
+		slog.LevelDebug,
+		fmt.Sprintf(
+			"ws message | dir=%s opcode=%d time=%d data=%s text=%s",
+			msg.Direction,
+			msg.OpCode,
+			msg.Timestamp,
+			dataPreview,
+			msg.Text,
+		),
+		ctx,
+	)
+
+	return nil
+}
+
+func formatWSData(msg *model.WSMessage) string {
+	if len(msg.Data) == 0 {
+		return "<empty>"
+	}
+
+	// Tries to treat as UTF-8 text first.
+	if utf8.Valid(msg.Data) {
+		s := string(msg.Data)
+
+		if len(s) > 200 {
+			return s[:200] + "...(truncated)"
+		}
+		return s
+	}
+
+	// Fallback: hex preview for binary data.
+	const max = 64
+	if len(msg.Data) > max {
+		return fmt.Sprintf("binary(hex)=%x...(truncated)", msg.Data[:max])
+	}
+
+	return fmt.Sprintf("binary(hex)=%x", msg.Data)
+}
+
+func (p *LoggerPlugin) OnWSClose(ctx *model.RequestContext) error {
+	p.log(slog.LevelDebug, "ws connection closed", ctx)
 
 	return nil
 }

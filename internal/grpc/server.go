@@ -2,13 +2,14 @@ package grpc
 
 import (
 	"context"
-	"log/slog"
 	"net"
 
 	"gitlab.com/marsskom/burro/internal/broker"
 	"gitlab.com/marsskom/burro/internal/config"
+	"gitlab.com/marsskom/burro/internal/logger"
 	pt "gitlab.com/marsskom/burro/internal/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 type burroServer struct {
@@ -47,6 +48,7 @@ func (bs *burroServer) Subscribe(req *pt.SubscribeRequest, stream grpc.ServerStr
 type ServerWrapper struct {
 	enabled       bool
 	listen        string
+	debug         bool
 	silentFailure bool
 
 	bs *burroServer
@@ -58,6 +60,7 @@ func NewServerWrapper(cfg *config.Config, hub *broker.Hub) *ServerWrapper {
 	return &ServerWrapper{
 		enabled:       cfg.GRPC.Enabled,
 		listen:        cfg.GRPC.Listen,
+		debug:         cfg.GRPC.Debug,
 		silentFailure: cfg.Proxy.ZeroConfigurationMode,
 
 		bs: &burroServer{
@@ -68,7 +71,7 @@ func NewServerWrapper(cfg *config.Config, hub *broker.Hub) *ServerWrapper {
 
 func (s *ServerWrapper) Start(errCh chan<- error) {
 	if !s.enabled {
-		slog.Info("gRPC server is disabled")
+		logger.Info("gRPC server is disabled")
 		return
 	}
 
@@ -82,8 +85,12 @@ func (s *ServerWrapper) Start(errCh chan<- error) {
 
 	pt.RegisterBurroServer(s.Server, s.bs)
 
+	if s.debug {
+		reflection.Register(s.Server)
+	}
+
 	go func() {
-		slog.Info("gRPC server is running", "address", s.listen)
+		logger.Info("gRPC server is running", "address", s.listen)
 
 		err := s.Server.Serve(lis)
 		if err != nil {
@@ -94,7 +101,7 @@ func (s *ServerWrapper) Start(errCh chan<- error) {
 
 func (s *ServerWrapper) handleError(err error, errCh chan<- error) {
 	if s.silentFailure {
-		slog.Warn("gRPC silently failed", "err", err)
+		logger.Warn("gRPC silently failed", "err", err)
 		return
 	}
 
@@ -119,5 +126,5 @@ func (s *ServerWrapper) Stop(ctx context.Context) {
 		s.Server.Stop()
 	}
 
-	slog.Info("gRPC server stopped")
+	logger.Info("gRPC server stopped")
 }

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -21,6 +20,7 @@ import (
 	"gitlab.com/marsskom/burro/internal/database"
 	"gitlab.com/marsskom/burro/internal/export"
 	"gitlab.com/marsskom/burro/internal/grpc"
+	"gitlab.com/marsskom/burro/internal/logger"
 	coreLogger "gitlab.com/marsskom/burro/internal/logger"
 	"gitlab.com/marsskom/burro/internal/model"
 	"gitlab.com/marsskom/burro/internal/persistence"
@@ -68,6 +68,18 @@ func init() {
 		"g",
 		"",
 		"gRPC listen address",
+	)
+	proxyCmd.Flags().BoolVar(
+		&cliFlags.GRPCDisabled,
+		"no-grpc",
+		false,
+		"gRPC disabled flag",
+	)
+	proxyCmd.Flags().BoolVar(
+		&cliFlags.GRPCDebug,
+		"grpc-d",
+		false,
+		"gRPC debug flag, activates reflection on gRPC server for grpcurl (for example) connections",
 	)
 
 	proxyCmd.Flags().StringVarP(
@@ -123,7 +135,7 @@ func run() error {
 		return err
 	}
 
-	coreLogger.SetDefault(verbosity, cfg.Core)
+	coreLogger.SetDefault(verbosity, cfg.Core.LogLevel)
 
 	// Certificates.
 	caCertPath := filepath.Join(paths.Home, cliFlags.CACert)
@@ -135,9 +147,9 @@ func run() error {
 			return err
 		}
 
-		slog.Warn("CA certificates weren't loaded (ignore for zero configuration mode)", "cert", caCertPath, "key", caKeyPath, "err", err)
+		logger.Warn("CA certificates weren't loaded (ignore for zero configuration mode)", "cert", caCertPath, "key", caKeyPath, "err", err)
 	} else {
-		slog.Info("CA certificates were loaded", "cert", caCertPath, "key", caKeyPath)
+		logger.Info("CA certificates were loaded", "cert", caCertPath, "key", caKeyPath)
 	}
 
 	// Broker.
@@ -177,7 +189,7 @@ func run() error {
 		IdleTimeout:       60 * time.Second,
 	}
 
-	slog.Info("proxy is listening on", "host", cfg.Proxy.Listen)
+	logger.Info("proxy is listening on", "host", cfg.Proxy.Listen)
 
 	if err := runServer(cfg, brokerHub, server); err != nil {
 		return err
@@ -188,7 +200,7 @@ func run() error {
 			Session: session.ID,
 		})
 		if err != nil {
-			slog.Error("plugin has failed", "err", err)
+			logger.Error("plugin has failed", "err", err)
 		}
 	}()
 
@@ -212,7 +224,7 @@ func initConfig(flags config.ProxyFlags) (*config.Paths, *config.Config, error) 
 	paths := config.NewPaths(config.ResolveWorkdir(flags.WorkDir))
 
 	if flags.ZeroCfg {
-		slog.Warn("proxy runs in zero configuration mode")
+		logger.Warn("proxy runs in zero configuration mode")
 
 		cfg, err := config.NewZeroCfg(flags)
 		if err != nil {
@@ -282,7 +294,7 @@ func runServer(cfg *config.Config, hub *broker.Hub, s *http.Server) error {
 	go func() {
 		var err error
 		if cfg.TLS.Enabled {
-			slog.Info("proxy TLS is enabled with certificates", "cert", cfg.TLS.Cert, "key", cfg.TLS.Key)
+			logger.Info("proxy TLS is enabled with certificates", "cert", cfg.TLS.Cert, "key", cfg.TLS.Key)
 
 			err = s.ListenAndServeTLS(cfg.TLS.Cert, cfg.TLS.Key)
 		} else {
@@ -300,10 +312,10 @@ func runServer(cfg *config.Config, hub *broker.Hub, s *http.Server) error {
 
 	select {
 	case sig := <-interrupt:
-		slog.Info("received signal, shutting down", "signal", sig)
+		logger.Info("received signal, shutting down", "signal", sig)
 
 	case err := <-serverErr:
-		slog.Error("server crashed", "error", err)
+		logger.Error("server crashed", "error", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -311,9 +323,9 @@ func runServer(cfg *config.Config, hub *broker.Hub, s *http.Server) error {
 
 	err := s.Shutdown(ctx)
 	if err != nil {
-		slog.Error("HTTP server shutdown failed", "error", err)
+		logger.Error("HTTP server shutdown failed", "error", err)
 	} else {
-		slog.Info("HTTP server exited")
+		logger.Info("HTTP server exited")
 	}
 
 	gRPCWrapper.Stop(ctx)
@@ -333,7 +345,7 @@ func saveWorkspace(paths *config.Paths, w *model.Workspace) error {
 	}
 	defer dbConn.Close()
 
-	slog.Debug("workspace is going to be saved under a name", "name", w.GetName())
+	logger.Debug("workspace is going to be saved under a name", "name", w.GetName())
 
 	err = dbcommand.UpsertWorkspaceCommand(context.Background(), dbConn.DB, w)
 	if err != nil {

@@ -2,12 +2,13 @@ package broker
 
 import (
 	"fmt"
+	"time"
 
 	"gitlab.com/marsskom/burro/internal/model"
 	"gitlab.com/marsskom/burro/internal/persistence"
 )
 
-func ToBrokerEvent(t EventType, requestContext *model.RequestContext) (Event, error) {
+func ToHTTPBrokerEvent(t EventType, requestContext *model.RequestContext) (Event, error) {
 	if requestContext.ID == "" {
 		return Event{}, fmt.Errorf("request context not initalized")
 	}
@@ -54,38 +55,44 @@ func ToBrokerEvent(t EventType, requestContext *model.RequestContext) (Event, er
 	if requestContext.RequestSnapshot == nil {
 		// TODO: `OnConnect` works before request snapshot is ready.
 		return Event{
+			TransportType: TransportHTTP,
 			Type:          t,
 			ID:            requestContext.ID,
 			SessionID:     requestContext.Session.ID,
-			Proto:         requestContext.Request.Proto,
-			Scheme:        requestContext.Request.URL.Scheme,
-			Host:          requestContext.Request.Host,
-			Method:        requestContext.Request.Method,
-			URL:           requestContext.Request.URL.String(),
-			Path:          requestContext.Request.URL.Path,
-			ContentLength: 0,
-			RemoteAddr:    requestContext.Request.RemoteAddr,
-			RequestBody:   make([]byte, 0),
+			Timestamp:     time.Now().UnixMilli(),
 
-			StartTime:  requestContext.StartTime.UnixMilli(),
-			State:      int(requestContext.State.Load()),
-			IsFinished: requestContext.IsFinished,
+			HTTP: &HTTPEvent{
+				Proto:         requestContext.Request.Proto,
+				Scheme:        requestContext.Request.URL.Scheme,
+				Host:          requestContext.Request.Host,
+				Method:        requestContext.Request.Method,
+				URL:           requestContext.Request.URL.String(),
+				Path:          requestContext.Request.URL.Path,
+				ContentLength: 0,
+				RemoteAddr:    requestContext.Request.RemoteAddr,
+				RequestBody:   make([]byte, 0),
 
-			QueryParams: "",
-			Headers:     "",
-			Cookies:     "",
+				StartTime:  requestContext.StartTime.UnixMilli(),
+				State:      int(requestContext.State.Load()),
+				IsFinished: requestContext.IsFinished,
 
-			ResponseStatus:        "",
-			ResponseStatusCode:    0,
-			ResponseProto:         "",
-			ResponseHeaders:       "",
-			ResponseContentLength: 0,
-			ResponseBody:          make([]byte, 0),
+				QueryParams: "",
+				Headers:     "",
+				Cookies:     "",
 
-			CreatedAt: requestContext.CreatedAt.UnixMilli(),
-			UpdatedAt: requestContext.UpdatedAt.UnixMilli(),
+				ResponseStatus:        "",
+				ResponseStatusCode:    0,
+				ResponseProto:         "",
+				ResponseHeaders:       "",
+				ResponseContentLength: 0,
+				ResponseBody:          make([]byte, 0),
 
-			Metadata: mtdata,
+				CreatedAt: requestContext.CreatedAt.UnixMilli(),
+				UpdatedAt: requestContext.UpdatedAt.UnixMilli(),
+
+				Metadata: mtdata,
+			},
+			WS: &WSEvent{},
 		}, nil
 	}
 
@@ -105,37 +112,67 @@ func ToBrokerEvent(t EventType, requestContext *model.RequestContext) (Event, er
 	}
 
 	return Event{
+		TransportType: TransportHTTP,
 		Type:          t,
 		ID:            requestContext.ID,
 		SessionID:     requestContext.Session.ID,
-		Proto:         requestContext.RequestSnapshot.Proto,
-		Scheme:        requestContext.RequestSnapshot.Scheme,
-		Host:          requestContext.RequestSnapshot.Host,
-		Method:        requestContext.RequestSnapshot.Method,
-		URL:           requestContext.RequestSnapshot.URL,
-		Path:          requestContext.RequestSnapshot.Path,
-		ContentLength: requestContext.RequestSnapshot.ContentLength,
-		RemoteAddr:    requestContext.RequestSnapshot.RemoteAddr,
-		RequestBody:   requestContext.RequestSnapshot.Body,
+		Timestamp:     time.Now().UnixMilli(),
 
-		StartTime:  requestContext.StartTime.UnixMilli(),
-		State:      int(requestContext.State.Load()),
-		IsFinished: requestContext.IsFinished,
+		HTTP: &HTTPEvent{
+			Proto:         requestContext.RequestSnapshot.Proto,
+			Scheme:        requestContext.RequestSnapshot.Scheme,
+			Host:          requestContext.RequestSnapshot.Host,
+			Method:        requestContext.RequestSnapshot.Method,
+			URL:           requestContext.RequestSnapshot.URL,
+			Path:          requestContext.RequestSnapshot.Path,
+			ContentLength: requestContext.RequestSnapshot.ContentLength,
+			RemoteAddr:    requestContext.RequestSnapshot.RemoteAddr,
+			RequestBody:   requestContext.RequestSnapshot.Body,
 
-		QueryParams: queryParams,
-		Headers:     headers,
-		Cookies:     cookiesAsText,
+			StartTime:  requestContext.StartTime.UnixMilli(),
+			State:      int(requestContext.State.Load()),
+			IsFinished: requestContext.IsFinished,
 
-		ResponseStatus:        respData.Status,
-		ResponseStatusCode:    respData.StatusCode,
-		ResponseProto:         respData.Proto,
-		ResponseHeaders:       respData.Headers,
-		ResponseContentLength: respData.ContentLength,
-		ResponseBody:          respData.Body,
+			QueryParams: queryParams,
+			Headers:     headers,
+			Cookies:     cookiesAsText,
 
-		CreatedAt: requestContext.CreatedAt.UnixMilli(),
-		UpdatedAt: requestContext.UpdatedAt.UnixMilli(),
+			ResponseStatus:        respData.Status,
+			ResponseStatusCode:    respData.StatusCode,
+			ResponseProto:         respData.Proto,
+			ResponseHeaders:       respData.Headers,
+			ResponseContentLength: respData.ContentLength,
+			ResponseBody:          respData.Body,
 
-		Metadata: mtdata,
+			CreatedAt: requestContext.CreatedAt.UnixMilli(),
+			UpdatedAt: requestContext.UpdatedAt.UnixMilli(),
+
+			Metadata: mtdata,
+		},
+		WS: &WSEvent{},
+	}, nil
+}
+
+func ToWSBrokerEvent(t EventType, requestContext *model.RequestContext, msg *model.WSMessage) (Event, error) {
+	var wsEvent *WSEvent
+	if msg != nil {
+		wsEvent = &WSEvent{
+			Direction: string(msg.Direction),
+			OpCode:    int(msg.OpCode),
+			Data:      msg.Data,
+			Text:      msg.Text,
+			Timestamp: msg.Timestamp,
+		}
+	}
+
+	return Event{
+		TransportType: TransportWS,
+		Type:          t,
+		ID:            requestContext.ID,
+		SessionID:     requestContext.Session.ID,
+		Timestamp:     time.Now().UnixMilli(),
+
+		HTTP: &HTTPEvent{},
+		WS:   wsEvent,
 	}, nil
 }
