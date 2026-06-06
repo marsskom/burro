@@ -3,11 +3,11 @@ package plugin
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"sort"
 
 	"gitlab.com/marsskom/burro/internal/broker"
 	"gitlab.com/marsskom/burro/internal/export"
+	"gitlab.com/marsskom/burro/internal/logger"
 	"gitlab.com/marsskom/burro/internal/model"
 )
 
@@ -29,7 +29,7 @@ func NewManager(hub *broker.Hub) *Manager {
 }
 
 func (m *Manager) Register(p Plugin) {
-	slog.Debug("register plugin", "plugin", p.Name())
+	logger.Debug("register plugin", "plugin", p.Name())
 
 	plugin := pluginMeta{
 		plugin:   p,
@@ -37,7 +37,7 @@ func (m *Manager) Register(p Plugin) {
 		priority: getPriority(p),
 	}
 
-	slog.Debug("priority", "priority", plugin.priority)
+	logger.Debug("priority", "priority", plugin.priority)
 
 	m.plugins = append(m.plugins, plugin)
 
@@ -54,9 +54,9 @@ func (m *Manager) EmitExportPluginsFlush(opts *export.FileNameVars) error {
 	var errs []error
 
 	for _, p := range m.plugins {
-		slog.Debug("EmitExportPluginsFlush: try plugin", "name", p.plugin.Name())
+		logger.Debug("EmitExportPluginsFlush: try plugin", "name", p.plugin.Name())
 		if !p.enabled {
-			slog.Debug("EmitExportPluginsFlush: plugin is disabled and ignores", "name", p.plugin.Name())
+			logger.Debug("EmitExportPluginsFlush: plugin is disabled and ignores", "name", p.plugin.Name())
 
 			continue
 		}
@@ -75,9 +75,9 @@ func (m *Manager) EmitConnect(ctx *model.RequestContext) error {
 	var errs []error
 
 	for _, p := range m.plugins {
-		slog.Debug("EmitConnect: try plugin", "name", p.plugin.Name())
+		logger.Debug("EmitConnect: try plugin", "name", p.plugin.Name())
 		if !p.enabled {
-			slog.Debug("EmitConnect: plugin is disabled and ignores", "name", p.plugin.Name())
+			logger.Debug("EmitConnect: plugin is disabled and ignores", "name", p.plugin.Name())
 
 			continue
 		}
@@ -89,9 +89,9 @@ func (m *Manager) EmitConnect(ctx *model.RequestContext) error {
 		}
 	}
 
-	event, err := broker.ToBrokerEvent(broker.EventConnect, ctx)
+	event, err := broker.ToHTTPBrokerEvent(broker.EventConnect, ctx)
 	if err != nil {
-		slog.Error("EmitConnect: cannot convert context to broker event", "err", err)
+		logger.Error("EmitConnect: cannot convert context to broker event", "err", err)
 		errs = append(errs, err)
 	} else {
 		m.hub.Publish(event)
@@ -104,9 +104,9 @@ func (m *Manager) EmitRequest(ctx *model.RequestContext) error {
 	var errs []error
 
 	for _, p := range m.plugins {
-		slog.Debug("EmitRequest: try plugin", "name", p.plugin.Name())
+		logger.Debug("EmitRequest: try plugin", "name", p.plugin.Name())
 		if !p.enabled {
-			slog.Debug("EmitRequest: plugin is disabled and ignores", "name", p.plugin.Name())
+			logger.Debug("EmitRequest: plugin is disabled and ignores", "name", p.plugin.Name())
 
 			continue
 		}
@@ -118,9 +118,9 @@ func (m *Manager) EmitRequest(ctx *model.RequestContext) error {
 		}
 	}
 
-	event, err := broker.ToBrokerEvent(broker.EventRequest, ctx)
+	event, err := broker.ToHTTPBrokerEvent(broker.EventRequest, ctx)
 	if err != nil {
-		slog.Error("EmitRequest: cannot convert context to broker event", "err", err)
+		logger.Error("EmitRequest: cannot convert context to broker event", "err", err)
 		errs = append(errs, err)
 	} else {
 		m.hub.Publish(event)
@@ -133,9 +133,9 @@ func (m *Manager) EmitResponse(ctx *model.RequestContext) error {
 	var errs []error
 
 	for _, p := range m.plugins {
-		slog.Debug("EmitResponse: try plugin", "name", p.plugin.Name())
+		logger.Debug("EmitResponse: try plugin", "name", p.plugin.Name())
 		if !p.enabled {
-			slog.Debug("EmitResponse: plugin is disabled and ignores", "name", p.plugin.Name())
+			logger.Debug("EmitResponse: plugin is disabled and ignores", "name", p.plugin.Name())
 
 			continue
 		}
@@ -147,9 +147,9 @@ func (m *Manager) EmitResponse(ctx *model.RequestContext) error {
 		}
 	}
 
-	event, err := broker.ToBrokerEvent(broker.EventResponse, ctx)
+	event, err := broker.ToHTTPBrokerEvent(broker.EventResponse, ctx)
 	if err != nil {
-		slog.Error("EmitResponse: cannot convert context to broker event", "err", err)
+		logger.Error("EmitResponse: cannot convert context to broker event", "err", err)
 		errs = append(errs, err)
 	} else {
 		m.hub.Publish(event)
@@ -162,9 +162,9 @@ func (m *Manager) EmitError(ctx *model.RequestContext, err error) error {
 	var errs []error
 
 	for _, p := range m.plugins {
-		slog.Debug("EmitError: try plugin", "name", p.plugin.Name())
+		logger.Debug("EmitError: try plugin", "name", p.plugin.Name())
 		if !p.enabled {
-			slog.Debug("EmitError: plugin is disabled and ignores", "name", p.plugin.Name())
+			logger.Debug("EmitError: plugin is disabled and ignores", "name", p.plugin.Name())
 
 			continue
 		}
@@ -176,9 +176,9 @@ func (m *Manager) EmitError(ctx *model.RequestContext, err error) error {
 		}
 	}
 
-	event, err := broker.ToBrokerEvent(broker.EventError, ctx)
+	event, err := broker.ToHTTPBrokerEvent(broker.EventError, ctx)
 	if err != nil {
-		slog.Error("EmitError: cannot convert context to broker event", "err", err)
+		logger.Error("EmitError: cannot convert context to broker event", "err", err)
 		errs = append(errs, err)
 	} else {
 		m.hub.Publish(event)
@@ -191,9 +191,9 @@ func (m *Manager) EmitClose(ctx *model.RequestContext) error {
 	var errs []error
 
 	for _, p := range m.plugins {
-		slog.Debug("EmitClose: try plugin", "name", p.plugin.Name())
+		logger.Debug("EmitClose: try plugin", "name", p.plugin.Name())
 		if !p.enabled {
-			slog.Debug("EmitClose: plugin is disabled and ignores", "name", p.plugin.Name())
+			logger.Debug("EmitClose: plugin is disabled and ignores", "name", p.plugin.Name())
 
 			continue
 		}
@@ -205,9 +205,96 @@ func (m *Manager) EmitClose(ctx *model.RequestContext) error {
 		}
 	}
 
-	event, err := broker.ToBrokerEvent(broker.EventClose, ctx)
+	event, err := broker.ToHTTPBrokerEvent(broker.EventClose, ctx)
 	if err != nil {
-		slog.Error("EmitClose: cannot convert context to broker event", "err", err)
+		logger.Error("EmitClose: cannot convert context to broker event", "err", err)
+		errs = append(errs, err)
+	} else {
+		m.hub.Publish(event)
+	}
+
+	return errors.Join(errs...)
+}
+
+func (m *Manager) EmitWSOpen(ctx *model.RequestContext) error {
+	var errs []error
+
+	for _, p := range m.plugins {
+		logger.Debug("EmitWSOpen: try plugin", "name", p.plugin.Name())
+		if !p.enabled {
+			logger.Debug("EmitWSOpen: plugin is disabled and ignores", "name", p.plugin.Name())
+
+			continue
+		}
+
+		if h, ok := p.plugin.(WebSocketHook); ok {
+			if err := h.OnWSOpen(ctx); err != nil {
+				errs = append(errs, fmt.Errorf("Plugin Manager: error on WSOpen hook: %w", err))
+			}
+		}
+	}
+
+	event, err := broker.ToWSBrokerEvent(broker.EventWSConnect, ctx, nil)
+	if err != nil {
+		logger.Error("WSOpen: cannot convert context to broker event", "err", err)
+		errs = append(errs, err)
+	} else {
+		m.hub.Publish(event)
+	}
+
+	return errors.Join(errs...)
+}
+
+func (m *Manager) EmitWSMessage(ctx *model.RequestContext, msg *model.WSMessage) error {
+	var errs []error
+
+	for _, p := range m.plugins {
+		logger.Debug("EmitWSMessage: try plugin", "name", p.plugin.Name())
+		if !p.enabled {
+			logger.Debug("EmitWSMessage: plugin is disabled and ignores", "name", p.plugin.Name())
+
+			continue
+		}
+
+		if h, ok := p.plugin.(WebSocketHook); ok {
+			if err := h.OnWSMessage(ctx, msg); err != nil {
+				errs = append(errs, fmt.Errorf("Plugin Manager: error on WSMessage hook: %w", err))
+			}
+		}
+	}
+
+	event, err := broker.ToWSBrokerEvent(broker.EventWSMessage, ctx, msg)
+	if err != nil {
+		logger.Error("EmitWSMessage: cannot convert context to broker event", "err", err)
+		errs = append(errs, err)
+	} else {
+		m.hub.Publish(event)
+	}
+
+	return errors.Join(errs...)
+}
+
+func (m *Manager) EmitWSClose(ctx *model.RequestContext) error {
+	var errs []error
+
+	for _, p := range m.plugins {
+		logger.Debug("EmitWSClose: try plugin", "name", p.plugin.Name())
+		if !p.enabled {
+			logger.Debug("EmitWSClose: plugin is disabled and ignores", "name", p.plugin.Name())
+
+			continue
+		}
+
+		if h, ok := p.plugin.(WebSocketHook); ok {
+			if err := h.OnWSClose(ctx); err != nil {
+				errs = append(errs, fmt.Errorf("Plugin Manager: error on WSClose hook: %w", err))
+			}
+		}
+	}
+
+	event, err := broker.ToWSBrokerEvent(broker.EventWSClose, ctx, nil)
+	if err != nil {
+		logger.Error("EmitWSClose: cannot convert context to broker event", "err", err)
 		errs = append(errs, err)
 	} else {
 		m.hub.Publish(event)

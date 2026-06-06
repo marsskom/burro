@@ -3,11 +3,11 @@ package config
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
 
+	"gitlab.com/marsskom/burro/internal/logger"
 	"gopkg.in/yaml.v3"
 )
 
@@ -71,6 +71,7 @@ type ProxyConfig struct {
 
 type GRPCConfig struct {
 	Enabled bool   `yaml:"enabled"`
+	Debug   bool   `yaml:"debug"`
 	Listen  string `yaml:"listen"`
 }
 
@@ -111,7 +112,7 @@ func mergeProxyFlags(cfg *Config, flags ProxyFlags) *Config {
 	if flags.Listen != "" {
 		host, port, err := net.SplitHostPort(flags.Listen)
 		if err != nil {
-			slog.Warn("error parsing listen argument, run on config settings", "error", err)
+			logger.Warn("error parsing listen argument, run on config settings", "error", err)
 		} else {
 			cfg.Proxy.Listen = fmt.Sprintf("%s:%s", host, port)
 		}
@@ -120,11 +121,19 @@ func mergeProxyFlags(cfg *Config, flags ProxyFlags) *Config {
 	if flags.GRPCListen != "" {
 		host, port, err := net.SplitHostPort(flags.GRPCListen)
 		if err != nil {
-			slog.Warn("error parsing gRPC listen argument, run on config settings", "error", err)
+			logger.Warn("error parsing gRPC listen argument, run on config settings", "error", err)
 		} else {
 			cfg.GRPC.Enabled = true
 			cfg.GRPC.Listen = fmt.Sprintf("%s:%s", host, port)
 		}
+	}
+
+	if flags.GRPCDisabled {
+		cfg.GRPC.Enabled = false
+	}
+
+	if flags.GRPCDebug {
+		cfg.GRPC.Debug = true
 	}
 
 	return cfg

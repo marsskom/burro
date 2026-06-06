@@ -1,8 +1,16 @@
 package broker
 
 import (
-	"log/slog"
 	"sync"
+
+	"gitlab.com/marsskom/burro/internal/logger"
+)
+
+type TransportType string
+
+const (
+	TransportHTTP TransportType = "http"
+	TransportWS   TransportType = "ws"
 )
 
 type EventType string
@@ -13,14 +21,13 @@ const (
 	EventResponse EventType = "response"
 	EventError    EventType = "error"
 	EventClose    EventType = "close"
+
+	EventWSConnect EventType = "ws_connect"
+	EventWSMessage EventType = "ws_message"
+	EventWSClose   EventType = "ws_close"
 )
 
-type Event struct {
-	Type EventType
-
-	ID        string
-	SessionID string
-
+type HTTPEvent struct {
 	Proto         string
 	Scheme        string
 	Host          string
@@ -53,6 +60,27 @@ type Event struct {
 	Metadata string // JSON
 }
 
+type WSEvent struct {
+	Direction string
+	OpCode    int
+	Data      []byte
+	Text      string
+	Timestamp int64
+}
+
+type Event struct {
+	TransportType TransportType
+	Type          EventType
+
+	ID        string
+	SessionID string
+
+	Timestamp int64
+
+	HTTP *HTTPEvent
+	WS   *WSEvent
+}
+
 type Hub struct {
 	subs map[chan Event]struct{}
 
@@ -72,7 +100,7 @@ func (h *Hub) Subscribe() chan Event {
 	h.subs[ch] = struct{}{}
 	h.mu.Unlock()
 
-	slog.Debug("new subscriber is connected")
+	logger.Debug("new subscriber is connected")
 
 	return ch
 }
@@ -85,7 +113,7 @@ func (h *Hub) Unsubscribe(ch chan Event) {
 		delete(h.subs, ch)
 		close(ch)
 
-		slog.Debug("subscriber has disconnected")
+		logger.Debug("subscriber has disconnected")
 	}
 }
 
@@ -93,7 +121,7 @@ func (h *Hub) Publish(e Event) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
-	slog.Debug("hub publish an event", "type", e.Type, "id", e.ID)
+	logger.Debug("hub publish an event", "type", e.Type, "id", e.ID)
 
 	for ch := range h.subs {
 		select {

@@ -3,10 +3,11 @@ package cert
 import (
 	"crypto/tls"
 	"fmt"
-	"log/slog"
 	"net"
 	"strings"
 	"sync"
+
+	"gitlab.com/marsskom/burro/internal/logger"
 )
 
 type CertCacheHostKey struct {
@@ -52,7 +53,7 @@ func (c *CertCache) Set(host CertCacheHostKey, item *CertCacheItem) error {
 
 	c.items[host.normalized] = item
 
-	slog.Debug("certificate was added to cache for a host", "host", host.normalized)
+	logger.Debug("certificate was added to cache for a host", "host", host.normalized)
 
 	return nil
 }
@@ -63,7 +64,7 @@ func (c *CertCache) Get(host CertCacheHostKey) (*CertCacheItem, bool) {
 
 	item, ok := c.items[host.normalized]
 
-	slog.Debug("get from certificates cache for a host", "host", host.normalized, "ok", ok)
+	logger.Debug("get from certificates cache for a host", "host", host.normalized, "ok", ok)
 
 	return item, ok
 }
@@ -72,7 +73,7 @@ func (c *CertCache) Delete(host CertCacheHostKey) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	slog.Debug("delete from certificates cache for a host", "host", host.normalized)
+	logger.Debug("delete from certificates cache for a host", "host", host.normalized)
 
 	delete(c.items, host.normalized)
 }
@@ -81,7 +82,7 @@ func (c *CertCache) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	slog.Debug("clear certificates cache")
+	logger.Debug("clear certificates cache")
 
 	c.items = make(map[string]*CertCacheItem)
 }

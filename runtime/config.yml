@@ -9,6 +9,7 @@ proxy:
 
 grpc:
   enabled: true
+  debug: false
   listen: localhost:7777
 
 tls:
@@ -22,5 +23,6 @@ plugins:
   policy: # separate config
 
   harexport:
+    enabled: false
     file: "%session%-%datetime%.har"
     override: true

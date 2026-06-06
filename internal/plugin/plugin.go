@@ -29,3 +29,9 @@ type ErrorHook interface {
 type CloseHook interface {
 	OnClose(ctx *model.RequestContext) error
 }
+
+type WebSocketHook interface {
+	OnWSOpen(ctx *model.RequestContext) error
+	OnWSMessage(ctx *model.RequestContext, msg *model.WSMessage) error
+	OnWSClose(ctx *model.RequestContext) error
+}

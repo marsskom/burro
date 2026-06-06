@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"log"
-	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"gitlab.com/marsskom/burro/internal/logger"
 )
 
 var serveCmd = &cobra.Command{
@@ -76,7 +76,7 @@ func serve(addr, dir string) error {
 	go func() {
 		var err error
 		if serveFlags.Cert != "" {
-			slog.Info("server TLS is enabled with certificates", "cert", serveFlags.Cert, "key", serveFlags.Key)
+			logger.Info("server TLS is enabled with certificates", "cert", serveFlags.Cert, "key", serveFlags.Key)
 
 			err = s.ListenAndServeTLS(serveFlags.Cert, serveFlags.Key)
 		} else {
@@ -90,10 +90,10 @@ func serve(addr, dir string) error {
 
 	select {
 	case sig := <-interrupt:
-		slog.Info("received signal, shutting down", "signal", sig)
+		logger.Info("received signal, shutting down", "signal", sig)
 
 	case err := <-serverErr:
-		slog.Error("file server crashed", "error", err)
+		logger.Error("file server crashed", "error", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -101,9 +101,9 @@ func serve(addr, dir string) error {
 
 	err := s.Shutdown(ctx)
 	if err != nil {
-		slog.Error("file server shutdown failed", "error", err)
+		logger.Error("file server shutdown failed", "error", err)
 	} else {
-		slog.Info("file server exited")
+		logger.Info("file server exited")
 	}
 
 	return err
@@ -115,7 +115,7 @@ func loggingMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 
-		slog.Info(
+		logger.Info(
 			"serve request",
 			"remote", r.RemoteAddr,
 			"method", r.Method,

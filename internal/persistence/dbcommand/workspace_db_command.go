@@ -4,9 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log/slog"
 
 	"gitlab.com/marsskom/burro/internal/database"
+	"gitlab.com/marsskom/burro/internal/logger"
 	"gitlab.com/marsskom/burro/internal/model"
 	"gitlab.com/marsskom/burro/internal/persistence/repository"
 )
@@ -31,7 +31,7 @@ func UpsertWorkspaceCommand(ctx context.Context, db *sql.DB, workspace *model.Wo
 
 	// Sessions.
 	if len(workspace.Sessions) == 0 {
-		slog.Info("workspace doesn't have the sessions", "workspace", workspace.Name)
+		logger.Info("workspace doesn't have the sessions", "workspace", workspace.Name)
 
 		return tx.Commit()
 	}
@@ -47,7 +47,7 @@ func UpsertWorkspaceCommand(ctx context.Context, db *sql.DB, workspace *model.Wo
 
 		// Requests.
 		if len(s.Requests) == 0 {
-			slog.Debug("session doesn't have requests", "session", s.ID)
+			logger.Debug("session doesn't have requests", "session", s.ID)
 
 			continue
 		}
