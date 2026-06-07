@@ -10,8 +10,8 @@ import (
 func TestHub_SubscribeAndPublish(t *testing.T) {
 	h := NewHub()
 
-	ch := h.Subscribe()
-	defer h.Unsubscribe(ch)
+	sub := h.Subscribe([]TransportType{}, []EventType{})
+	defer h.Unsubscribe(sub)
 
 	event := Event{
 		Type: EventRequest,
@@ -21,7 +21,7 @@ func TestHub_SubscribeAndPublish(t *testing.T) {
 	h.Publish(event)
 
 	select {
-	case got := <-ch:
+	case got := <-sub.Ch:
 		if got.ID != "1" {
 			t.Fatalf("expected ID=1, got %s", got.ID)
 		}
@@ -33,17 +33,17 @@ func TestHub_SubscribeAndPublish(t *testing.T) {
 func TestHub_MultipleSubscribers(t *testing.T) {
 	h := NewHub()
 
-	ch1 := h.Subscribe()
-	ch2 := h.Subscribe()
+	sub1 := h.Subscribe([]TransportType{}, []EventType{})
+	sub2 := h.Subscribe([]TransportType{}, []EventType{})
 
-	defer h.Unsubscribe(ch1)
-	defer h.Unsubscribe(ch2)
+	defer h.Unsubscribe(sub1)
+	defer h.Unsubscribe(sub2)
 
 	e := Event{ID: "x"}
 
 	h.Publish(e)
 
-	for _, ch := range []chan Event{ch1, ch2} {
+	for _, ch := range []chan Event{sub1.Ch, sub2.Ch} {
 		select {
 		case got := <-ch:
 			if got.ID != "x" {
@@ -55,14 +55,70 @@ func TestHub_MultipleSubscribers(t *testing.T) {
 	}
 }
 
+func expect(t *testing.T, name string, ch chan Event, shouldReceive bool) {
+	t.Helper()
+
+	select {
+	case ev := <-ch:
+		if !shouldReceive {
+			t.Fatalf("%s: unexpected event %s", name, ev.ID)
+		}
+	case <-time.After(200 * time.Millisecond):
+		if shouldReceive {
+			t.Fatalf("%s: expected event but got timeout", name)
+		}
+	}
+}
+
+func TestHub_FilteringMatrix(t *testing.T) {
+	h := NewHub()
+
+	sub1 := h.Subscribe([]TransportType{TransportHTTP}, []EventType{})
+	sub2 := h.Subscribe([]TransportType{TransportWS}, []EventType{})
+	sub3 := h.Subscribe([]TransportType{}, []EventType{EventConnect, EventWSConnect})
+
+	defer h.Unsubscribe(sub1)
+	defer h.Unsubscribe(sub2)
+	defer h.Unsubscribe(sub3)
+
+	httpConnect := Event{
+		ID: "http-connect", Type: EventConnect, TransportType: TransportHTTP,
+	}
+	wsConnect := Event{
+		ID: "ws-connect", Type: EventWSConnect, TransportType: TransportWS,
+	}
+	httpOther := Event{
+		ID: "http-other", Type: EventError, TransportType: TransportHTTP,
+	}
+
+	// Fires events one by one (important for deterministic reads).
+	h.Publish(httpConnect)
+
+	expect(t, "sub1 httpConnect", sub1.Ch, true)
+	expect(t, "sub2 httpConnect", sub2.Ch, false)
+	expect(t, "sub3 httpConnect", sub3.Ch, true)
+
+	h.Publish(wsConnect)
+
+	expect(t, "sub1 wsConnect", sub1.Ch, false)
+	expect(t, "sub2 wsConnect", sub2.Ch, true)
+	expect(t, "sub3 wsConnect", sub3.Ch, true)
+
+	h.Publish(httpOther)
+
+	expect(t, "sub1 httpOther", sub1.Ch, true)
+	expect(t, "sub2 httpOther", sub2.Ch, false)
+	expect(t, "sub3 httpOther", sub3.Ch, false)
+}
+
 func TestHub_Unsubscribe_ClosesChannel(t *testing.T) {
 	h := NewHub()
 
-	ch := h.Subscribe()
+	sub := h.Subscribe([]TransportType{}, []EventType{})
 
-	h.Unsubscribe(ch)
+	h.Unsubscribe(sub)
 
-	_, ok := <-ch
+	_, ok := <-sub.Ch
 	if ok {
 		t.Fatal("expected channel to be closed")
 	}
@@ -86,11 +142,11 @@ func TestHub_ConcurrentSubscribeUnsubscribe(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			ch := h.Subscribe()
+			sub := h.Subscribe([]TransportType{}, []EventType{})
 
 			time.Sleep(time.Millisecond)
 
-			h.Unsubscribe(ch)
+			h.Unsubscribe(sub)
 		}()
 	}
 
@@ -100,13 +156,13 @@ func TestHub_ConcurrentSubscribeUnsubscribe(t *testing.T) {
 func TestHub_SlowSubscriber_DoesNotBlockPublish(t *testing.T) {
 	h := NewHub()
 
-	slow := h.Subscribe()
+	slow := h.Subscribe([]TransportType{}, []EventType{})
 	defer h.Unsubscribe(slow)
 
 	// Fills buffer to simulate slow consumer.
 	for i := 0; i < 100; i++ {
 		select {
-		case slow <- Event{}:
+		case slow.Ch <- Event{}:
 		default:
 		}
 	}
@@ -129,8 +185,8 @@ func TestHub_SlowSubscriber_DoesNotBlockPublish(t *testing.T) {
 func TestHub_ConcurrentPublish(t *testing.T) {
 	h := NewHub()
 
-	ch := h.Subscribe()
-	defer h.Unsubscribe(ch)
+	sub := h.Subscribe([]TransportType{}, []EventType{})
+	defer h.Unsubscribe(sub)
 
 	var wg sync.WaitGroup
 
@@ -151,7 +207,7 @@ func TestHub_ConcurrentPublish(t *testing.T) {
 	drain := true
 	for drain {
 		select {
-		case <-ch:
+		case <-sub.Ch:
 			received++
 		default:
 			drain = false

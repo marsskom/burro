@@ -267,8 +267,8 @@ func TestManager_EmitRequest_WithHub(t *testing.T) {
 
 	hub := broker.NewHub()
 
-	ch := hub.Subscribe()
-	defer hub.Unsubscribe(ch)
+	sub := hub.Subscribe([]broker.TransportType{}, []broker.EventType{})
+	defer hub.Unsubscribe(sub)
 
 	m := NewManager(hub)
 
@@ -280,7 +280,7 @@ func TestManager_EmitRequest_WithHub(t *testing.T) {
 	}
 
 	select {
-	case event := <-ch:
+	case event := <-sub.Ch:
 		if event.Type != broker.EventRequest {
 			t.Fatalf("unexpected event type: %v", event.Type)
 		}
