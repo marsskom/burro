@@ -471,6 +471,43 @@ grpcurl -plaintext localhost:7777 burro.Burro/Subscribe
 
 To catch raw events.
 
+Moreover, you may filter events by transport type:
+
+```shell
+grpcurl \
+  -plaintext \
+  -d '{
+    "transportType": ["TRANSPORT_HTTP"]
+  }' \
+  localhost:7777 \
+  burro.Burro/Subscribe
+```
+
+Event type:
+
+```shell
+grpcurl \
+  -plaintext \
+  -d '{
+    "eventTypes": ["EVENT_WS_MESSAGE"]
+  }' \
+  localhost:7777 \
+  burro.Burro/Subscribe
+```
+
+Or both:
+
+```shell
+grpcurl \
+  -plaintext \
+  -d '{
+    "transportType": ["TRANSPORT_HTTP"],
+    "eventTypes": ["EVENT_REQUEST", "EVENT_RESPONSE"]
+  }' \
+  localhost:7777 \
+  burro.Burro/Subscribe
+```
+
 ---
 
 ## `.gitlab`

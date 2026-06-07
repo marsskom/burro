@@ -81,37 +81,73 @@ type Event struct {
 	WS   *WSEvent
 }
 
+type Subscription struct {
+	Ch         chan Event
+	Transports map[TransportType]struct{}
+	EventTypes map[EventType]struct{}
+}
+
+func (s *Subscription) Match(e Event) bool {
+	if len(s.Transports) > 0 {
+		if _, ok := s.Transports[e.TransportType]; !ok {
+			return false
+		}
+	}
+
+	if len(s.EventTypes) > 0 {
+		if _, ok := s.EventTypes[e.Type]; !ok {
+			return false
+		}
+	}
+
+	return true
+}
+
 type Hub struct {
-	subs map[chan Event]struct{}
+	subs map[*Subscription]struct{}
 
 	mu sync.RWMutex
 }
 
 func NewHub() *Hub {
 	return &Hub{
-		subs: make(map[chan Event]struct{}),
+		subs: make(map[*Subscription]struct{}),
 	}
 }
 
-func (h *Hub) Subscribe() chan Event {
-	ch := make(chan Event, 100)
+func (h *Hub) Subscribe(
+	transports []TransportType,
+	eventTypes []EventType,
+) *Subscription {
+	sub := &Subscription{
+		Ch:         make(chan Event, 100),
+		Transports: make(map[TransportType]struct{}),
+		EventTypes: make(map[EventType]struct{}),
+	}
+
+	for _, t := range transports {
+		sub.Transports[t] = struct{}{}
+	}
+	for _, et := range eventTypes {
+		sub.EventTypes[et] = struct{}{}
+	}
 
 	h.mu.Lock()
-	h.subs[ch] = struct{}{}
+	h.subs[sub] = struct{}{}
 	h.mu.Unlock()
 
 	logger.Debug("new subscriber is connected")
 
-	return ch
+	return sub
 }
 
-func (h *Hub) Unsubscribe(ch chan Event) {
+func (h *Hub) Unsubscribe(sub *Subscription) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	if _, ok := h.subs[ch]; ok {
-		delete(h.subs, ch)
-		close(ch)
+	if _, ok := h.subs[sub]; ok {
+		delete(h.subs, sub)
+		close(sub.Ch)
 
 		logger.Debug("subscriber has disconnected")
 	}
@@ -121,11 +157,15 @@ func (h *Hub) Publish(e Event) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
-	logger.Debug("hub publish an event", "type", e.Type, "id", e.ID)
+	logger.Debug("hub publish an event", "transportType", e.TransportType, "type", e.Type, "id", e.ID)
 
-	for ch := range h.subs {
+	for sub := range h.subs {
+		if !sub.Match(e) {
+			continue
+		}
+
 		select {
-		case ch <- e:
+		case sub.Ch <- e:
 		default:
 		}
 	}

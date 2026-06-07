@@ -54,7 +54,7 @@ func brokerEventToProtoEvent(e broker.Event) *pt.Event {
 
 	return &pt.Event{
 		TransportType: transportType,
-		Type:          getEventType(e.Type),
+		Type:          getProtoEventType(e.Type),
 
 		Id:        e.ID,
 		SessionId: e.SessionID,
@@ -66,27 +66,40 @@ func brokerEventToProtoEvent(e broker.Event) *pt.Event {
 	}
 }
 
-func getEventType(eType broker.EventType) pt.EventType {
-	switch eType {
-	case broker.EventConnect:
-		return pt.EventType_EVENT_CONNECT
-	case broker.EventRequest:
-		return pt.EventType_EVENT_REQUEST
-	case broker.EventResponse:
-		return pt.EventType_EVENT_RESPONSE
-	case broker.EventError:
-		return pt.EventType_EVENT_ERROR
-	case broker.EventClose:
-		return pt.EventType_EVENT_CLOSE
+var eventTypeToProto = map[broker.EventType]pt.EventType{
+	broker.EventConnect:   pt.EventType_EVENT_CONNECT,
+	broker.EventRequest:   pt.EventType_EVENT_REQUEST,
+	broker.EventResponse:  pt.EventType_EVENT_RESPONSE,
+	broker.EventError:     pt.EventType_EVENT_ERROR,
+	broker.EventClose:     pt.EventType_EVENT_CLOSE,
+	broker.EventWSConnect: pt.EventType_EVENT_WS_CONNECT,
+	broker.EventWSMessage: pt.EventType_EVENT_WS_MESSAGE,
+	broker.EventWSClose:   pt.EventType_EVENT_WS_CLOSE,
+}
 
-	case broker.EventWSConnect:
-		return pt.EventType_EVENT_WS_CONNECT
-	case broker.EventWSMessage:
-		return pt.EventType_EVENT_WS_MESSAGE
-	case broker.EventWSClose:
-		return pt.EventType_EVENT_WS_CLOSE
+var eventTypeFromProto = map[pt.EventType]broker.EventType{
+	pt.EventType_EVENT_CONNECT:    broker.EventConnect,
+	pt.EventType_EVENT_REQUEST:    broker.EventRequest,
+	pt.EventType_EVENT_RESPONSE:   broker.EventResponse,
+	pt.EventType_EVENT_ERROR:      broker.EventError,
+	pt.EventType_EVENT_CLOSE:      broker.EventClose,
+	pt.EventType_EVENT_WS_CONNECT: broker.EventWSConnect,
+	pt.EventType_EVENT_WS_MESSAGE: broker.EventWSMessage,
+	pt.EventType_EVENT_WS_CLOSE:   broker.EventWSClose,
+}
 
-	default:
-		return pt.EventType_EVENT_CONNECT
+func getProtoEventType(eType broker.EventType) pt.EventType {
+	if v, ok := eventTypeToProto[eType]; ok {
+		return v
 	}
+
+	return pt.EventType_EVENT_CONNECT
+}
+
+func getBrokerEventType(eType pt.EventType) broker.EventType {
+	if v, ok := eventTypeFromProto[eType]; ok {
+		return v
+	}
+
+	return broker.EventConnect
 }

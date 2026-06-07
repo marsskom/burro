@@ -25,15 +25,18 @@ func (bs *burroServer) Ping(ctx context.Context, req *pt.PingRequest) (*pt.PingR
 }
 
 func (bs *burroServer) Subscribe(req *pt.SubscribeRequest, stream grpc.ServerStreamingServer[pt.Event]) error {
-	ch := bs.hub.Subscribe()
-	defer bs.hub.Unsubscribe(ch)
+	sub := bs.hub.Subscribe(
+		toBrokerTransportType(req.TransportType),
+		toBrokerEventType(req.EventTypes),
+	)
+	defer bs.hub.Unsubscribe(sub)
 
 	for {
 		select {
 		case <-stream.Context().Done():
 			return stream.Context().Err()
 
-		case e, ok := <-ch:
+		case e, ok := <-sub.Ch:
 			if !ok {
 				return nil
 			}
@@ -43,6 +46,28 @@ func (bs *burroServer) Subscribe(req *pt.SubscribeRequest, stream grpc.ServerStr
 			}
 		}
 	}
+}
+
+func toBrokerTransportType(tt []pt.TransportType) []broker.TransportType {
+	transportTypes := make([]broker.TransportType, len(tt))
+	for _, v := range tt {
+		if v == pt.TransportType_TRANSPORT_HTTP {
+			transportTypes = append(transportTypes, broker.TransportHTTP)
+		} else {
+			transportTypes = append(transportTypes, broker.TransportWS)
+		}
+	}
+
+	return transportTypes
+}
+
+func toBrokerEventType(et []pt.EventType) []broker.EventType {
+	eventTypes := make([]broker.EventType, len(et))
+	for _, v := range et {
+		eventTypes = append(eventTypes, getBrokerEventType(v))
+	}
+
+	return eventTypes
 }
 
 type ServerWrapper struct {
