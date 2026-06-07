@@ -2,7 +2,7 @@ package grpc
 
 import (
 	"gitlab.com/marsskom/burro/internal/broker"
-	pt "gitlab.com/marsskom/burro/internal/proto"
+	pt "gitlab.com/marsskom/burro/internal/proto/burro/v1"
 )
 
 func brokerEventToProtoEvent(e broker.Event) *pt.Event {
@@ -47,9 +47,9 @@ func brokerEventToProtoEvent(e broker.Event) *pt.Event {
 		}
 	}
 
-	transportType := pt.TransportType_TRANSPORT_HTTP
+	transportType := pt.TransportType_TRANSPORT_TYPE_HTTP
 	if e.TransportType == broker.TransportWS {
-		transportType = pt.TransportType_TRANSPORT_WS
+		transportType = pt.TransportType_TRANSPORT_TYPE_HTTP
 	}
 
 	return &pt.Event{
@@ -67,25 +67,25 @@ func brokerEventToProtoEvent(e broker.Event) *pt.Event {
 }
 
 var eventTypeToProto = map[broker.EventType]pt.EventType{
-	broker.EventConnect:   pt.EventType_EVENT_CONNECT,
-	broker.EventRequest:   pt.EventType_EVENT_REQUEST,
-	broker.EventResponse:  pt.EventType_EVENT_RESPONSE,
-	broker.EventError:     pt.EventType_EVENT_ERROR,
-	broker.EventClose:     pt.EventType_EVENT_CLOSE,
-	broker.EventWSConnect: pt.EventType_EVENT_WS_CONNECT,
-	broker.EventWSMessage: pt.EventType_EVENT_WS_MESSAGE,
-	broker.EventWSClose:   pt.EventType_EVENT_WS_CLOSE,
+	broker.EventConnect:   pt.EventType_EVENT_TYPE_CONNECT,
+	broker.EventRequest:   pt.EventType_EVENT_TYPE_REQUEST,
+	broker.EventResponse:  pt.EventType_EVENT_TYPE_RESPONSE,
+	broker.EventError:     pt.EventType_EVENT_TYPE_ERROR,
+	broker.EventClose:     pt.EventType_EVENT_TYPE_CLOSE,
+	broker.EventWSConnect: pt.EventType_EVENT_TYPE_WS_CONNECT,
+	broker.EventWSMessage: pt.EventType_EVENT_TYPE_WS_MESSAGE,
+	broker.EventWSClose:   pt.EventType_EVENT_TYPE_WS_CLOSE,
 }
 
 var eventTypeFromProto = map[pt.EventType]broker.EventType{
-	pt.EventType_EVENT_CONNECT:    broker.EventConnect,
-	pt.EventType_EVENT_REQUEST:    broker.EventRequest,
-	pt.EventType_EVENT_RESPONSE:   broker.EventResponse,
-	pt.EventType_EVENT_ERROR:      broker.EventError,
-	pt.EventType_EVENT_CLOSE:      broker.EventClose,
-	pt.EventType_EVENT_WS_CONNECT: broker.EventWSConnect,
-	pt.EventType_EVENT_WS_MESSAGE: broker.EventWSMessage,
-	pt.EventType_EVENT_WS_CLOSE:   broker.EventWSClose,
+	pt.EventType_EVENT_TYPE_CONNECT:    broker.EventConnect,
+	pt.EventType_EVENT_TYPE_REQUEST:    broker.EventRequest,
+	pt.EventType_EVENT_TYPE_RESPONSE:   broker.EventResponse,
+	pt.EventType_EVENT_TYPE_ERROR:      broker.EventError,
+	pt.EventType_EVENT_TYPE_CLOSE:      broker.EventClose,
+	pt.EventType_EVENT_TYPE_WS_CONNECT: broker.EventWSConnect,
+	pt.EventType_EVENT_TYPE_WS_MESSAGE: broker.EventWSMessage,
+	pt.EventType_EVENT_TYPE_WS_CLOSE:   broker.EventWSClose,
 }
 
 func getProtoEventType(eType broker.EventType) pt.EventType {
@@ -93,7 +93,7 @@ func getProtoEventType(eType broker.EventType) pt.EventType {
 		return v
 	}
 
-	return pt.EventType_EVENT_CONNECT
+	return pt.EventType_EVENT_TYPE_CONNECT
 }
 
 func getBrokerEventType(eType pt.EventType) broker.EventType {

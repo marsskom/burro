@@ -7,7 +7,7 @@ import (
 	"gitlab.com/marsskom/burro/internal/broker"
 	"gitlab.com/marsskom/burro/internal/config"
 	"gitlab.com/marsskom/burro/internal/logger"
-	pt "gitlab.com/marsskom/burro/internal/proto"
+	pt "gitlab.com/marsskom/burro/internal/proto/burro/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
@@ -15,7 +15,7 @@ import (
 type burroServer struct {
 	hub *broker.Hub
 
-	pt.UnimplementedBurroServer
+	pt.UnimplementedBurroServiceServer
 }
 
 func (bs *burroServer) Ping(ctx context.Context, req *pt.PingRequest) (*pt.PingResponse, error) {
@@ -24,7 +24,7 @@ func (bs *burroServer) Ping(ctx context.Context, req *pt.PingRequest) (*pt.PingR
 	}, nil
 }
 
-func (bs *burroServer) Subscribe(req *pt.SubscribeRequest, stream grpc.ServerStreamingServer[pt.Event]) error {
+func (bs *burroServer) Subscribe(req *pt.SubscribeRequest, stream grpc.ServerStreamingServer[pt.SubscribeResponse]) error {
 	sub := bs.hub.Subscribe(
 		toBrokerTransportType(req.TransportType),
 		toBrokerEventType(req.EventTypes),
@@ -41,7 +41,8 @@ func (bs *burroServer) Subscribe(req *pt.SubscribeRequest, stream grpc.ServerStr
 				return nil
 			}
 
-			if err := stream.Send(brokerEventToProtoEvent(e)); err != nil {
+			event := brokerEventToProtoEvent(e)
+			if err := stream.Send(&pt.SubscribeResponse{Event: event}); err != nil {
 				return err
 			}
 		}
@@ -51,7 +52,7 @@ func (bs *burroServer) Subscribe(req *pt.SubscribeRequest, stream grpc.ServerStr
 func toBrokerTransportType(tt []pt.TransportType) []broker.TransportType {
 	transportTypes := make([]broker.TransportType, len(tt))
 	for _, v := range tt {
-		if v == pt.TransportType_TRANSPORT_HTTP {
+		if v == pt.TransportType_TRANSPORT_TYPE_HTTP {
 			transportTypes = append(transportTypes, broker.TransportHTTP)
 		} else {
 			transportTypes = append(transportTypes, broker.TransportWS)
@@ -108,7 +109,7 @@ func (s *ServerWrapper) Start(errCh chan<- error) {
 
 	s.Server = grpc.NewServer()
 
-	pt.RegisterBurroServer(s.Server, s.bs)
+	pt.RegisterBurroServiceServer(s.Server, s.bs)
 
 	if s.debug {
 		reflection.Register(s.Server)

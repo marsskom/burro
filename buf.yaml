@@ -1,0 +1,12 @@
+version: v2
+
+deps:
+  - gitlab.com/marsskom/burro-proto
+
+lint:
+  use:
+    - STANDARD
+
+breaking:
+  use:
+    - FILE
