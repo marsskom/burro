@@ -10,6 +10,7 @@ type ProxyFlags struct {
 	Workspace    string
 	TLSCert      string
 	TLSKey       string
+	TLSInsecure  bool
 	CACert       string
 	CAKey        string
 }

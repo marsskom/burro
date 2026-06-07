@@ -56,7 +56,8 @@ func (px *Proxy) handleHTTPS(
 	}
 
 	tlsConn := tls.Server(clientConn, &tls.Config{
-		Certificates: []tls.Certificate{*fakeCert},
+		Certificates:       []tls.Certificate{*fakeCert},
+		InsecureSkipVerify: px.tls.Insecure,
 	})
 	defer tlsConn.Close()
 

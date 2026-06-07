@@ -15,6 +15,7 @@ type WSFrame struct {
 	Payload []byte
 }
 
+// https://www.rfc-editor.org/info/rfc6455/#section-5.2
 func readWSFrame(r io.Reader) (*WSFrame, error) {
 	var header [2]byte
 

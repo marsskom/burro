@@ -110,6 +110,12 @@ func init() {
 		"",
 		"path to tls key",
 	)
+	proxyCmd.Flags().BoolVar(
+		&cliFlags.TLSInsecure,
+		"insecure-tls",
+		false,
+		"allows self-signed (and insecure) certificates",
+	)
 
 	proxyCmd.MarkFlagsRequiredTogether("tls-cert", "tls-key")
 
@@ -173,7 +179,7 @@ func run() error {
 	workspace.AddSession(session)
 
 	// Proxy.
-	px := proxy.NewProxy(pm, session, caCert, caKey)
+	px := proxy.NewProxy(cfg.TLS, pm, session, caCert, caKey)
 
 	if cfg.Proxy.Listen == "" {
 		return fmt.Errorf("proxy listen address cannot be empty")

@@ -76,9 +76,10 @@ type GRPCConfig struct {
 }
 
 type TLSConfig struct {
-	Enabled bool   `yaml:"enabled"`
-	Cert    string `yaml:"cert"`
-	Key     string `yaml:"key"`
+	Enabled  bool   `yaml:"enabled"`
+	Cert     string `yaml:"cert"`
+	Key      string `yaml:"key"`
+	Insecure bool   `yaml:"insecure"`
 }
 
 func NewZeroCfg(flags ProxyFlags) (*Config, error) {
@@ -107,6 +108,10 @@ func mergeProxyFlags(cfg *Config, flags ProxyFlags) *Config {
 		cfg.TLS.Enabled = true
 		cfg.TLS.Cert = flags.TLSCert
 		cfg.TLS.Key = flags.TLSKey
+	}
+
+	if flags.TLSInsecure {
+		cfg.TLS.Insecure = true
 	}
 
 	if flags.Listen != "" {

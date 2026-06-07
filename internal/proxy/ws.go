@@ -31,7 +31,7 @@ func (px *Proxy) handleWebSocket(
 	var err error
 	if ctx.Protocol == model.WSS {
 		upConn, err = tls.Dial("tcp", addr, &tls.Config{
-			InsecureSkipVerify: true,
+			InsecureSkipVerify: px.tls.Insecure,
 		})
 	} else {
 		upConn, err = net.Dial("tcp", addr)

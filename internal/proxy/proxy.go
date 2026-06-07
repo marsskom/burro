@@ -10,13 +10,19 @@ import (
 	"time"
 
 	"gitlab.com/marsskom/burro/internal/cert"
+	"gitlab.com/marsskom/burro/internal/config"
 	"gitlab.com/marsskom/burro/internal/model"
 	"gitlab.com/marsskom/burro/internal/plugin"
 )
 
+type TLSConfig struct {
+	Insecure bool
+}
+
 type Proxy struct {
 	plugins *plugin.Manager
 	session *model.Session
+	tls     *TLSConfig
 
 	client       *http.Client
 	traceTimings *model.Timings
@@ -28,6 +34,7 @@ type Proxy struct {
 }
 
 func NewProxy(
+	cfg config.TLSConfig,
 	pm *plugin.Manager,
 	session *model.Session,
 	caCert *x509.Certificate,
@@ -36,6 +43,9 @@ func NewProxy(
 	return &Proxy{
 		plugins: pm,
 		session: session,
+		tls: &TLSConfig{
+			Insecure: cfg.Insecure,
+		},
 
 		client: &http.Client{
 			Transport: &http.Transport{
