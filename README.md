@@ -466,10 +466,16 @@ Or pass flag `--grpc-d` to enable debug mode.
 Debug mode allows to you use something like `grpcurl`:
 
 ```shell
-grpcurl -plaintext localhost:7777 burro.Burro/Subscribe
+grpcurl -plaintext localhost:7777 burro.v1.BurroService/Subscribe
 ```
 
 To catch raw events.
+
+You may investigare API with:
+
+```shell
+grpcurl -plaintext localhost:7777 list
+```
 
 Moreover, you may filter events by transport type:
 
@@ -480,7 +486,7 @@ grpcurl \
     "transportType": ["TRANSPORT_HTTP"]
   }' \
   localhost:7777 \
-  burro.Burro/Subscribe
+  burro.v1.BurroService/Subscribe
 ```
 
 Event type:
@@ -492,7 +498,7 @@ grpcurl \
     "eventTypes": ["EVENT_WS_MESSAGE"]
   }' \
   localhost:7777 \
-  burro.Burro/Subscribe
+  burro.v1.BurroService/Subscribe
 ```
 
 Or both:
