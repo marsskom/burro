@@ -1,4 +1,7 @@
+enabled: false
 priority: 10
-# All paths is relative to `runtime/plugins/policy/` directory
+# All paths is relative to `runtime/plugins/policy/` directory.
 whitelist: ./data/whitelist.txt
 blacklist: ./data/blacklist.txt
+# Actions directory `runtime/plugins/policy/actions`.
+action_dir: actions

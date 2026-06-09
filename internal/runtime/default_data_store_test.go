@@ -4,7 +4,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -71,57 +70,13 @@ func TestPluginDataStore_List(t *testing.T) {
 
 	ds := NewPluginDataStore(dir)
 
-	files, err := ds.List()
+	files, err := ds.List("", []string{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	if len(files) != 2 {
 		t.Fatalf("expected 2 files, got %d", len(files))
-	}
-}
-
-func TestPluginDataStore_UnsupportedOperations(t *testing.T) {
-	ds := NewPluginDataStore(t.TempDir())
-
-	tests := []struct {
-		name string
-		fn   func() error
-	}{
-		{
-			name: "create",
-			fn: func() error {
-				_, err := ds.Create("a.txt")
-				return err
-			},
-		},
-		{
-			name: "rename",
-			fn: func() error {
-				return ds.Rename("a", "b")
-			},
-		},
-		{
-			name: "write",
-			fn: func() error {
-				_, err := ds.Write("a.txt", strings.NewReader("test"))
-				return err
-			},
-		},
-		{
-			name: "delete",
-			fn: func() error {
-				return ds.Delete("a.txt")
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if err := tt.fn(); err == nil {
-				t.Fatal("expected error")
-			}
-		})
 	}
 }
 

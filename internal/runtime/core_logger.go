@@ -1,26 +1,30 @@
 package runtime
 
-import "log/slog"
+import (
+	"gitlab.com/marsskom/burro/internal/logger"
+)
 
-type CoreLogger struct {
-	log *slog.Logger
-}
+type CoreLogger struct{}
 
 func NewCoreLogger() *CoreLogger {
-	return &CoreLogger{
-		log: slog.Default(),
-	}
+	return &CoreLogger{}
 }
 
+func (l *CoreLogger) Trace(msg string, args ...any) {
+	logger.Trace(msg, args...)
+}
 func (l *CoreLogger) Debug(msg string, args ...any) {
-	l.log.Debug(msg, args...)
+	logger.Debug(msg, args...)
 }
 func (l *CoreLogger) Info(msg string, args ...any) {
-	l.log.Info(msg, args...)
+	logger.Info(msg, args...)
 }
 func (l *CoreLogger) Warn(msg string, args ...any) {
-	l.log.Warn(msg, args...)
+	logger.Warn(msg, args...)
 }
 func (l *CoreLogger) Error(msg string, args ...any) {
-	l.log.Error(msg, args...)
+	logger.Error(msg, args...)
+}
+func (l *CoreLogger) Audit(msg string, args ...any) {
+	logger.Audit(msg, args...)
 }

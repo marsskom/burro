@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -46,7 +45,8 @@ var proxyCmd = &cobra.Command{
 
 		err := run()
 		if err != nil {
-			log.Fatal(err)
+			fmt.Fprintf(os.Stderr, "%v", err)
+			os.Exit(1)
 		}
 	},
 }
@@ -150,6 +150,8 @@ func run() error {
 
 	if err != nil {
 		if !cfg.Proxy.ZeroConfigurationMode {
+			logger.Error(err.Error())
+
 			return err
 		}
 
@@ -166,11 +168,15 @@ func run() error {
 
 	err = plugin.LoadPlugins(paths, cfg, pm)
 	if err != nil {
+		logger.Error(err.Error())
+
 		return err
 	}
 
 	workspace, err := initWorkspace(paths, cfg, cliFlags.Workspace)
 	if err != nil {
+		logger.Error(err.Error())
+
 		return err
 	}
 
@@ -182,7 +188,10 @@ func run() error {
 	px := proxy.NewProxy(cfg.TLS, pm, session, caCert, caKey)
 
 	if cfg.Proxy.Listen == "" {
-		return fmt.Errorf("proxy listen address cannot be empty")
+		err = fmt.Errorf("proxy listen address cannot be empty")
+		logger.Error(err.Error())
+
+		return err
 	}
 
 	server := &http.Server{
@@ -198,6 +207,8 @@ func run() error {
 	logger.Info("proxy is listening on", "host", cfg.Proxy.Listen)
 
 	if err := runServer(cfg, brokerHub, server); err != nil {
+		logger.Error(err.Error())
+
 		return err
 	}
 
@@ -220,6 +231,8 @@ func run() error {
 
 	err = saveWorkspace(paths, workspace)
 	if err != nil {
+		logger.Error(err.Error())
+
 		return err
 	}
 

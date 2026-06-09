@@ -24,13 +24,6 @@ func (px *Proxy) handleHTTPS(
 		return fmt.Errorf("HTTPS: cannot transit context to prepared state: %w", err)
 	}
 
-	reqSnapshot, err := model.MakeRequestSnapshot(ctx.Request)
-	if err != nil {
-		return fmt.Errorf("HTTPS: error on request snapshot creation: %w", err)
-	}
-
-	ctx.SetRequestSnapshot(reqSnapshot)
-
 	host := ctx.Request.Host
 	if strings.Contains(host, ":") {
 		host = strings.Split(host, ":")[0]
