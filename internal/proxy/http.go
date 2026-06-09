@@ -18,13 +18,6 @@ func (px *Proxy) handleRawHTTPOverConn(clientConn net.Conn, ctx *model.RequestCo
 		return fmt.Errorf("HTTP Over Tunnel: cannot transit context to prepared state: %w", err)
 	}
 
-	reqSnapshot, err := model.MakeRequestSnapshot(ctx.Request)
-	if err != nil {
-		return fmt.Errorf("HTTP Over Tunnel: error on request snapshot creation: %w", err)
-	}
-
-	ctx.SetRequestSnapshot(reqSnapshot)
-
 	reader := bufio.NewReader(clientConn)
 	writer := bufio.NewWriter(clientConn)
 
@@ -56,12 +49,6 @@ func (px *Proxy) handleRawHTTP(w http.ResponseWriter, ctx *model.RequestContext)
 		return fmt.Errorf("HTTP: cannot transit context to prepared state: %w", err)
 	}
 
-	reqSnapshot, err := model.MakeRequestSnapshot(ctx.Request)
-	if err != nil {
-		return fmt.Errorf("HTTP: error on request snapshot creation: %w", err)
-	}
-
-	ctx.SetRequestSnapshot(reqSnapshot)
 	err = ctx.Transition(model.StateForwarding)
 	if err != nil {
 		return fmt.Errorf("HTTP: canot transit context to forwarding state: %w", err)

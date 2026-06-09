@@ -3,13 +3,21 @@ package logger
 import (
 	"context"
 	"log/slog"
-	"os"
 	"runtime"
 	"strconv"
 	"strings"
 )
 
-const LevelTrace = slog.Level(-8)
+const (
+	LevelTrace = slog.Level(-8)
+	LevelAudit = slog.Level(8)
+)
+
+var logger = slog.Default()
+
+func Default() *slog.Logger {
+	return logger
+}
 
 func SetDefault(verbosity int, level string) {
 	var slogLevel slog.Level
@@ -21,11 +29,38 @@ func SetDefault(verbosity int, level string) {
 
 	opts := &slog.HandlerOptions{
 		Level: slogLevel,
+		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+			if a.Key == slog.LevelKey {
+				switch v := a.Value.Any().(type) {
+				case slog.Level:
+					return formatLevel(v)
+
+				case string:
+					return a
+
+				case int:
+					return formatLevel(slog.Level(v))
+				}
+			}
+
+			return a
+		},
 	}
 
-	handler := slog.NewJSONHandler(os.Stdout, opts)
+	logger = slog.New(NewSplitHandler(opts))
 
-	slog.SetDefault(slog.New(handler))
+	slog.SetDefault(logger)
+}
+
+func formatLevel(l slog.Level) slog.Attr {
+	switch l {
+	case LevelTrace:
+		return slog.String(slog.LevelKey, "TRACE")
+	case LevelAudit:
+		return slog.String(slog.LevelKey, "AUDIT")
+	default:
+		return slog.String(slog.LevelKey, l.String())
+	}
 }
 
 func verbosityToLevel(v int) slog.Level {
@@ -43,6 +78,8 @@ func verbosityToLevel(v int) slog.Level {
 
 func parseLevel(level string) slog.Level {
 	switch strings.ToLower(strings.TrimSpace(level)) {
+	case "trace":
+		return LevelTrace
 	case "debug":
 		return slog.LevelDebug
 	case "info":
@@ -51,6 +88,8 @@ func parseLevel(level string) slog.Level {
 		return slog.LevelWarn
 	case "error":
 		return slog.LevelError
+	case "audit":
+		return LevelAudit
 	default:
 		return slog.LevelInfo
 	}
@@ -102,4 +141,8 @@ func Warn(msg string, args ...any) {
 
 func Error(msg string, args ...any) {
 	slog.Error(msg, args...)
+}
+
+func Audit(msg string, args ...any) {
+	slog.Log(context.Background(), LevelAudit, msg, args...)
 }

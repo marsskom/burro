@@ -257,6 +257,9 @@ func MakeRequestSnapshot(r *http.Request) (*RequestSnapshot, error) {
 	r.Body.Close()
 	// Restores request body for next request.
 	r.Body = io.NopCloser(bytes.NewReader(body))
+	r.GetBody = func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewBuffer(body)), nil
+	}
 
 	snapshot := &RequestSnapshot{
 		Proto:         r.Proto,

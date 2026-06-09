@@ -13,6 +13,7 @@ stages:
 
 variables:
   SECRET_DETECTION_ENABLED: "true"
+  GIT_DEPTH: 0
 
 # Security.
 include:
@@ -51,7 +52,7 @@ build:
 
 # Release stage.
 release:
-  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  image: registry.gitlab.com/gitlab-org/cli:latest
   stage: release
   needs: ["build"]
 
@@ -59,19 +60,25 @@ release:
     - if: $CI_COMMIT_TAG
 
   script:
-    - echo "Creating GitLab release $CI_COMMIT_TAG"
+    - |
+      if [ -f "releases/${CI_COMMIT_TAG}.md" ]; then
+        NOTES_FILE="releases/${CI_COMMIT_TAG}.md"
+      else
+        PREV_TAG=$(git describe --tags --abbrev=0 "$CI_COMMIT_TAG^" 2>/dev/null || true)
 
-  release:
-    tag_name: "$CI_COMMIT_TAG"
-    name: "Burro $CI_COMMIT_TAG"
-    description: "Auto-release for $CI_COMMIT_TAG"
-    assets:
-      links:
-        - name: "Linux AMD64"
-          url: "$CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_TAG/raw/dist/burro-${CI_COMMIT_TAG}-linux-amd64.tar.gz?job=build"
-        - name: "Linux ARM64"
-          url: "$CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_TAG/raw/dist/burro-${CI_COMMIT_TAG}-linux-arm64.tar.gz?job=build"
-        - name: "macOS ARM64"
-          url: "$CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_TAG/raw/dist/burro-${CI_COMMIT_TAG}-darwin-arm64.tar.gz?job=build"
-        - name: "Checksums"
-          url: "$CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_TAG/raw/dist/checksums.txt?job=build"
+        if [ -n "$PREV_TAG" ]; then
+          git log --pretty=format:"- %s" "$PREV_TAG..$CI_COMMIT_TAG" > generated-release.md
+        else
+          git log --pretty=format:"- %s" > generated-release.md
+        fi
+
+        NOTES_FILE="generated-release.md"
+      fi
+
+      glab release create "$CI_COMMIT_TAG" \
+        --name "Burro $CI_COMMIT_TAG" \
+        --notes-file "$NOTES_FILE" \
+        --assets-link "{\"name\":\"Linux AMD64\",\"url\":\"$CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_TAG/raw/dist/burro-${CI_COMMIT_TAG}-linux-amd64.tar.gz?job=build\"}" \
+        --assets-link "{\"name\":\"Linux ARM64\",\"url\":\"$CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_TAG/raw/dist/burro-${CI_COMMIT_TAG}-linux-arm64.tar.gz?job=build\"}" \
+        --assets-link "{\"name\":\"macOS ARM64\",\"url\":\"$CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_TAG/raw/dist/burro-${CI_COMMIT_TAG}-darwin-arm64.tar.gz?job=build\"}" \
+        --assets-link "{\"name\":\"Checksums\",\"url\":\"$CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_TAG/raw/dist/checksums.txt?job=build\"}"

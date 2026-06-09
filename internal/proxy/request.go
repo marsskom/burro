@@ -59,13 +59,6 @@ func (px *Proxy) proceedTunnelRequest(
 		return fmt.Errorf("cannot transit new context to prepared state: %w", err)
 	}
 
-	reqSnapshot, err := model.MakeRequestSnapshot(newCtx.Request)
-	if err != nil {
-		return fmt.Errorf("error on request snapshot creation: %w", err)
-	}
-
-	newCtx.SetRequestSnapshot(reqSnapshot)
-
 	req = req.WithContext(newCtx.Context)
 	req.URL.Scheme = scheme
 	req.URL.Host = newCtx.Request.Host
@@ -115,6 +108,12 @@ func (px *Proxy) proceedRawRequest(ctx *model.RequestContext, r *http.Request) e
 		return fmt.Errorf("proceedRawRequest: error on EmitRequest: %w", err)
 	}
 
+	reqSnapshot, err := model.MakeRequestSnapshot(ctx.Request)
+	if err != nil {
+		return fmt.Errorf("error on request snapshot creation: %w", err)
+	}
+
+	ctx.SetRequestSnapshot(reqSnapshot)
 	if ctx.IsFinished {
 		return nil
 	}
@@ -159,6 +158,13 @@ func (px *Proxy) proceedRequest(
 	if err != nil {
 		return fmt.Errorf("proccedRequest: error on EmitRequest: %w", err)
 	}
+
+	reqSnapshot, err := model.MakeRequestSnapshot(ctx.Request)
+	if err != nil {
+		return fmt.Errorf("error on request snapshot creation: %w", err)
+	}
+
+	ctx.SetRequestSnapshot(reqSnapshot)
 
 	if ctx.IsFinished {
 		return nil

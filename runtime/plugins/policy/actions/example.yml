@@ -1,0 +1,35 @@
+actions:
+  - id: example_add_debug_header
+    priority: 1
+
+    match:
+      domain: example.com
+
+    action:
+      - op: set_header
+        args:
+          name: X-Debug
+          value: "true"
+
+      - op: log
+        args:
+          level: audit
+          message: "X-Debug was set to `true` for example.com"
+
+  - id: example_block_delete_requests
+    priority: 0
+
+    match:
+      all:
+        - domain: example.com
+        - method: DELETE
+
+    action:
+      - op: log
+        args:
+          level: audit
+          message: "DELETE request to example.com is going to be denied"
+
+      - op: deny
+
+    on_match: "stop"

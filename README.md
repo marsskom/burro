@@ -201,6 +201,14 @@ Plugins MAY:
 
 ---
 
+## Core Plugins
+
+- Logger - just logs events
+- [Policy](./plugins/policy/README.md)
+- HAR Export - exports requests adn responses into HAR file
+
+---
+
 ## License
 
 Burro core is licensed under the GNU General Public License v3.0 (GPLv3). This applies to all source code included in the main repository, including bundled plugins located in the `plugins/` directory, which are considered part of the Burro codebase and distributed under GPLv3.
@@ -212,7 +220,7 @@ More details here:
 - [PLUGIN_EXCEPTION.md](./PLUGIN_EXCEPTION.md)
 - [PLUGINS](./PLUGINS.md)
 
---
+---
 
 ## Running Burro
 

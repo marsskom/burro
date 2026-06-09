@@ -11,7 +11,7 @@ func Forbidden() *http.Response {
 
 	return &http.Response{
 		Status:     "403 Forbidden",
-		StatusCode: 403,
+		StatusCode: http.StatusForbidden,
 		Header: http.Header{
 			"Content-Type": []string{"text/plain; charset=utf-8"},
 		},

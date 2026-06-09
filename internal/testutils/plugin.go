@@ -11,7 +11,7 @@ import (
 
 type TestRuntime struct {
 	artifacts pluginapi.ArtifactStore
-	data      pluginapi.ArtifactStore
+	data      pluginapi.DataStore
 	kv        pluginapi.KeyValueStore
 	eventBus  pluginapi.EventBus
 	log       pluginapi.Logger
@@ -19,7 +19,7 @@ type TestRuntime struct {
 
 func NewRuntime(
 	a pluginapi.ArtifactStore,
-	d pluginapi.ArtifactStore,
+	d pluginapi.DataStore,
 	kv pluginapi.KeyValueStore,
 	e pluginapi.EventBus,
 	l pluginapi.Logger,
@@ -44,7 +44,7 @@ func NewForPlugin(home string) pluginapi.Runtime {
 }
 
 func (r *TestRuntime) Artifacts() pluginapi.ArtifactStore { return r.artifacts }
-func (r *TestRuntime) Data() pluginapi.ArtifactStore      { return r.data }
+func (r *TestRuntime) Data() pluginapi.DataStore          { return r.data }
 func (r *TestRuntime) KV() pluginapi.KeyValueStore        { return r.kv }
 func (r *TestRuntime) Events() pluginapi.EventBus         { return r.eventBus }
 func (r *TestRuntime) Log() pluginapi.Logger              { return r.log }
@@ -58,12 +58,21 @@ type MemoryLogger struct {
 func NewMemoryLogger() *MemoryLogger {
 	return &MemoryLogger{
 		Messages: map[string][]string{
+			"trace": make([]string, 0),
 			"debug": make([]string, 0),
 			"info":  make([]string, 0),
 			"warn":  make([]string, 0),
 			"error": make([]string, 0),
+			"audit": make([]string, 0),
 		},
 	}
+}
+
+func (l *MemoryLogger) Trace(msg string, args ...any) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	l.Messages["trace"] = append(l.Messages["trace"], fmt.Sprintf("%s ; args: %+v", msg, args))
 }
 
 func (l *MemoryLogger) Debug(msg string, args ...any) {
@@ -89,4 +98,10 @@ func (l *MemoryLogger) Error(msg string, args ...any) {
 	defer l.mu.Unlock()
 
 	l.Messages["error"] = append(l.Messages["error"], fmt.Sprintf("%s ; args: %+v", msg, args))
+}
+func (l *MemoryLogger) Audit(msg string, args ...any) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	l.Messages["audit"] = append(l.Messages["audit"], fmt.Sprintf("%s ; args: %+v", msg, args))
 }
