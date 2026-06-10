@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"net"
@@ -54,7 +55,7 @@ func (px *Proxy) handleRawHTTP(w http.ResponseWriter, ctx *model.RequestContext)
 		return fmt.Errorf("HTTP: canot transit context to forwarding state: %w", err)
 	}
 
-	err = px.proceedRawRequest(ctx, ctx.Request)
+	err = px.proceedRequest(ctx, ctx.Request)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 
@@ -66,7 +67,36 @@ func (px *Proxy) handleRawHTTP(w http.ResponseWriter, ctx *model.RequestContext)
 		return fmt.Errorf("HTTP: canot transit context to responding state: %w", err)
 	}
 
-	writeResponse(w, ctx.Response)
+	err = px.plugins.EmitBeforeResponseSend(ctx)
+	if err != nil {
+		return fmt.Errorf("HTTP: error on EmitBeforeResponseSend: %w", err)
+	}
+
+	if !isHTTPStreamingResponse(ctx.Response) {
+		// Regular HTTP request - response.
+		writeResponse(w, ctx.Response)
+	} else {
+		// Stream HTTP.
+		body, err := writeHTTPStream(w, ctx.Response)
+		if err != nil {
+			return fmt.Errorf("HTTP: error on write HTTP stream: %w", err)
+		}
+
+		ctx.Response.Body = io.NopCloser(bytes.NewReader(body))
+	}
+
+	resSnapshot, err := model.MakeResponseSnapshot(ctx.Response, px.traceTimings)
+	if err != nil {
+		return fmt.Errorf("HTTP: error on response snapshot creation: %w", err)
+	}
+
+	ctx.SetResponse(ctx.Response, resSnapshot)
+	ctx.Finish()
+
+	err = px.plugins.EmitAfterResponseSend(ctx)
+	if err != nil {
+		return fmt.Errorf("HTTP: error on EmitAfterResponseSend: %w", err)
+	}
 
 	err = ctx.Transition(model.StateFinished)
 	if err != nil {

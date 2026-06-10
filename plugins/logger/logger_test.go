@@ -9,7 +9,7 @@ import (
 	"gitlab.com/marsskom/burro/internal/testutils"
 )
 
-func TestLogger_OnRequest(t *testing.T) {
+func TestLogger_OnBeforeRequestSend(t *testing.T) {
 	runtime := testutils.NewForPlugin("")
 
 	p := New()
@@ -22,7 +22,40 @@ func TestLogger_OnRequest(t *testing.T) {
 		Request: req,
 	}
 
-	err := p.OnRequest(ctx)
+	err := p.OnBeforeRequestSend(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	logger, _ := runtime.Log().(*testutils.MemoryLogger)
+	if len(logger.Messages["debug"]) != 1 {
+		t.Fatalf("expected 1 info message, got: %d", len(logger.Messages["debug"]))
+	}
+
+	message := logger.Messages["debug"][0]
+	if !strings.Contains(message, "before request send") {
+		t.Fatalf("expected log output, got: %s", message)
+	}
+
+	if !strings.Contains(message, "req-1") {
+		t.Fatalf("expected request ID in log")
+	}
+}
+
+func TestLogger_OnAfterRequestSend(t *testing.T) {
+	runtime := testutils.NewForPlugin("")
+
+	p := New()
+	p.Init(runtime, map[string]any{})
+
+	req, _ := http.NewRequest("GET", "http://example.com/test", nil)
+
+	ctx := &model.RequestContext{
+		ID:      "req-1",
+		Request: req,
+	}
+
+	err := p.OnAfterRequestSend(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +66,7 @@ func TestLogger_OnRequest(t *testing.T) {
 	}
 
 	message := logger.Messages["info"][0]
-	if !strings.Contains(message, "request received") {
+	if !strings.Contains(message, "after request was sent") {
 		t.Fatalf("expected log output, got: %s", message)
 	}
 
@@ -82,8 +115,10 @@ func TestLogger_NilFieldsSafety(t *testing.T) {
 
 	// Must not panic.
 	_ = p.OnConnect(ctx)
-	_ = p.OnRequest(ctx)
-	_ = p.OnResponse(ctx)
+	_ = p.OnBeforeRequestSend(ctx)
+	_ = p.OnAfterRequestSend(ctx)
+	_ = p.OnBeforeResponseSend(ctx)
+	_ = p.OnAfterResponseSend(ctx)
 	_ = p.OnError(ctx, nil)
 	_ = p.OnClose(ctx)
 }
@@ -103,7 +138,7 @@ func TestLogger_ResponseContextIncluded(t *testing.T) {
 		},
 	}
 
-	_ = p.OnResponse(ctx)
+	_ = p.OnAfterResponseSend(ctx)
 
 	logger, _ := runtime.Log().(*testutils.MemoryLogger)
 	if len(logger.Messages["info"]) != 1 {
@@ -112,7 +147,7 @@ func TestLogger_ResponseContextIncluded(t *testing.T) {
 
 	message := logger.Messages["info"][0]
 
-	if !strings.Contains(message, "response received") {
+	if !strings.Contains(message, "after response was sent") {
 		t.Fatal("missing response log")
 	}
 
@@ -134,7 +169,7 @@ func TestLogger_MetadataSafety(t *testing.T) {
 		},
 	}
 
-	_ = p.OnRequest(ctx)
+	_ = p.OnAfterRequestSend(ctx)
 
 	logger, _ := runtime.Log().(*testutils.MemoryLogger)
 	if len(logger.Messages["info"]) != 1 {

@@ -14,7 +14,7 @@ func TestHub_SubscribeAndPublish(t *testing.T) {
 	defer h.Unsubscribe(sub)
 
 	event := Event{
-		Type: EventRequest,
+		Type: EventBeforeRequestSend,
 		ID:   "1",
 	}
 

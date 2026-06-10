@@ -12,13 +12,13 @@ import (
 	"gitlab.com/marsskom/burro/internal/testutils"
 )
 
-func TestHAR_OnRequest_CreatesEntry(t *testing.T) {
+func TestHAR_OnAfterRequestSend_CreatesEntry(t *testing.T) {
 	p := New()
 	p.Init(testutils.NewForPlugin(""), map[string]any{})
 
 	ctx := newCtx()
 
-	err := p.OnRequest(ctx)
+	err := p.OnAfterRequestSend(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +47,7 @@ func TestHAR_OnResponse_EnrichesEntry(t *testing.T) {
 
 	ctx := newCtx()
 
-	_ = p.OnRequest(ctx)
+	_ = p.OnAfterRequestSend(ctx)
 
 	ctx.ResponseSnapshot = &model.ResponseSnapshot{
 		Status:     "200 OK",
@@ -63,7 +63,7 @@ func TestHAR_OnResponse_EnrichesEntry(t *testing.T) {
 		TimeSSL:     40 * time.Millisecond,
 	}
 
-	err := p.OnResponse(ctx)
+	err := p.OnAfterResponseSend(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +85,7 @@ func TestHAR_Response_TextEncoding(t *testing.T) {
 
 	ctx := newCtx()
 
-	_ = p.OnRequest(ctx)
+	_ = p.OnAfterRequestSend(ctx)
 
 	ctx.ResponseSnapshot = &model.ResponseSnapshot{
 		Status:     "200 OK",
@@ -97,7 +97,7 @@ func TestHAR_Response_TextEncoding(t *testing.T) {
 		Body: []byte(`{"hello":"world"}`),
 	}
 
-	_ = p.OnResponse(ctx)
+	_ = p.OnAfterResponseSend(ctx)
 
 	entry := p.entries[ctx.ID]
 
@@ -116,7 +116,7 @@ func TestHAR_Response_Base64Encoding(t *testing.T) {
 
 	ctx := newCtx()
 
-	_ = p.OnRequest(ctx)
+	_ = p.OnAfterRequestSend(ctx)
 
 	ctx.ResponseSnapshot = &model.ResponseSnapshot{
 		Status:     "200 OK",
@@ -128,7 +128,7 @@ func TestHAR_Response_Base64Encoding(t *testing.T) {
 		Body: []byte{0x01, 0x02, 0x03},
 	}
 
-	_ = p.OnResponse(ctx)
+	_ = p.OnAfterResponseSend(ctx)
 
 	entry := p.entries[ctx.ID]
 
@@ -149,7 +149,7 @@ func TestHAR_Flush_WritesFile(t *testing.T) {
 
 	ctx := newCtx()
 
-	_ = p.OnRequest(ctx)
+	_ = p.OnAfterRequestSend(ctx)
 
 	ctx.ResponseSnapshot = &model.ResponseSnapshot{
 		Status:     "200 OK",
@@ -159,7 +159,7 @@ func TestHAR_Flush_WritesFile(t *testing.T) {
 		Body:       []byte(`ok`),
 	}
 
-	_ = p.OnResponse(ctx)
+	_ = p.OnAfterResponseSend(ctx)
 
 	err := p.Flush(&export.FileNameVars{
 		Session: "sess1",

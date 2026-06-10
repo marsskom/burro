@@ -15,11 +15,13 @@ type ConnectHook interface {
 }
 
 type RequestHook interface {
-	OnRequest(ctx *model.RequestContext) error
+	OnBeforeRequestSend(ctx *model.RequestContext) error
+	OnAfterRequestSend(ctx *model.RequestContext) error
 }
 
 type ResponseHook interface {
-	OnResponse(ctx *model.RequestContext) error
+	OnBeforeResponseSend(ctx *model.RequestContext) error
+	OnAfterResponseSend(ctx *model.RequestContext) error
 }
 
 type ErrorHook interface {

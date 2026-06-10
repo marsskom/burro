@@ -8,8 +8,10 @@ type FileNameVars struct {
 
 type Exporter interface {
 	OnConnect(ctx *model.RequestContext) error
-	OnRequest(ctx *model.RequestContext) error
-	OnResponse(ctx *model.RequestContext) error
+	OnBeforeRequestSend(ctx *model.RequestContext) error
+	OnAfterRequestSend(ctx *model.RequestContext) error
+	OnBeforeResponseSend(ctx *model.RequestContext) error
+	OnAfterResponseSend(ctx *model.RequestContext) error
 	OnError(ctx *model.RequestContext, err error) error
 	OnClose(ctx *model.RequestContext) error
 	Flush(opts *FileNameVars) error
@@ -23,12 +25,20 @@ func (ep *ExportPlugin) OnConnect(ctx *model.RequestContext) error {
 	return ep.exporter.OnConnect(ctx)
 }
 
-func (ep *ExportPlugin) OnRequest(ctx *model.RequestContext) error {
-	return ep.exporter.OnRequest(ctx)
+func (ep *ExportPlugin) OnBeforeRequestSend(ctx *model.RequestContext) error {
+	return ep.exporter.OnBeforeRequestSend(ctx)
 }
 
-func (ep *ExportPlugin) OnResponse(ctx *model.RequestContext) error {
-	return ep.exporter.OnResponse(ctx)
+func (ep *ExportPlugin) OnAfterRequestSend(ctx *model.RequestContext) error {
+	return ep.exporter.OnAfterRequestSend(ctx)
+}
+
+func (ep *ExportPlugin) OnBeforeResponseSend(ctx *model.RequestContext) error {
+	return ep.exporter.OnBeforeResponseSend(ctx)
+}
+
+func (ep *ExportPlugin) OnAfterResponseSend(ctx *model.RequestContext) error {
+	return ep.exporter.OnAfterResponseSend(ctx)
 }
 
 func (ep *ExportPlugin) OnError(ctx *model.RequestContext, err error) error {

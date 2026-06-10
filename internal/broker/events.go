@@ -16,11 +16,13 @@ const (
 type EventType string
 
 const (
-	EventConnect  EventType = "connect"
-	EventRequest  EventType = "request"
-	EventResponse EventType = "response"
-	EventError    EventType = "error"
-	EventClose    EventType = "close"
+	EventConnect            EventType = "connect"
+	EventBeforeRequestSend  EventType = "before_request_send"
+	EventAfterRequestSend   EventType = "after_request_send"
+	EventBeforeResponseSend EventType = "before_response_send"
+	EventAfterResponseSend  EventType = "after_response_send"
+	EventError              EventType = "error"
+	EventClose              EventType = "close"
 
 	EventWSConnect EventType = "ws_connect"
 	EventWSMessage EventType = "ws_message"

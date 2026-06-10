@@ -164,12 +164,19 @@ func (c *RequestContext) SetRequestSnapshot(reqSnapshot *RequestSnapshot) {
 	c.UpdatedAt = time.Now()
 }
 
-func (c *RequestContext) Finish(resp *http.Response, respSnapshot *ResponseSnapshot) {
+func (c *RequestContext) SetResponse(resp *http.Response, respSnapshot *ResponseSnapshot) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	c.Response = resp
 	c.ResponseSnapshot = respSnapshot
+	c.UpdatedAt = time.Now()
+}
+
+func (c *RequestContext) Finish() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	c.IsFinished = true
 	c.UpdatedAt = time.Now()
 }

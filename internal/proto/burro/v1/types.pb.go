@@ -73,15 +73,17 @@ func (TransportType) EnumDescriptor() ([]byte, []int) {
 type EventType int32
 
 const (
-	EventType_EVENT_TYPE_UNSPECIFIED EventType = 0
-	EventType_EVENT_TYPE_CONNECT     EventType = 1
-	EventType_EVENT_TYPE_REQUEST     EventType = 2
-	EventType_EVENT_TYPE_RESPONSE    EventType = 3
-	EventType_EVENT_TYPE_ERROR       EventType = 4
-	EventType_EVENT_TYPE_CLOSE       EventType = 5
-	EventType_EVENT_TYPE_WS_CONNECT  EventType = 10
-	EventType_EVENT_TYPE_WS_MESSAGE  EventType = 11
-	EventType_EVENT_TYPE_WS_CLOSE    EventType = 12
+	EventType_EVENT_TYPE_UNSPECIFIED          EventType = 0
+	EventType_EVENT_TYPE_CONNECT              EventType = 1
+	EventType_EVENT_TYPE_BEFORE_REQUEST_SEND  EventType = 2
+	EventType_EVENT_TYPE_AFTER_REQUEST_SEND   EventType = 3
+	EventType_EVENT_TYPE_BEFORE_RESPONSE_SEND EventType = 4
+	EventType_EVENT_TYPE_AFTER_RESPONSE_SEND  EventType = 5
+	EventType_EVENT_TYPE_ERROR                EventType = 6
+	EventType_EVENT_TYPE_CLOSE                EventType = 7
+	EventType_EVENT_TYPE_WS_CONNECT           EventType = 10
+	EventType_EVENT_TYPE_WS_MESSAGE           EventType = 11
+	EventType_EVENT_TYPE_WS_CLOSE             EventType = 12
 )
 
 // Enum value maps for EventType.
@@ -89,24 +91,28 @@ var (
 	EventType_name = map[int32]string{
 		0:  "EVENT_TYPE_UNSPECIFIED",
 		1:  "EVENT_TYPE_CONNECT",
-		2:  "EVENT_TYPE_REQUEST",
-		3:  "EVENT_TYPE_RESPONSE",
-		4:  "EVENT_TYPE_ERROR",
-		5:  "EVENT_TYPE_CLOSE",
+		2:  "EVENT_TYPE_BEFORE_REQUEST_SEND",
+		3:  "EVENT_TYPE_AFTER_REQUEST_SEND",
+		4:  "EVENT_TYPE_BEFORE_RESPONSE_SEND",
+		5:  "EVENT_TYPE_AFTER_RESPONSE_SEND",
+		6:  "EVENT_TYPE_ERROR",
+		7:  "EVENT_TYPE_CLOSE",
 		10: "EVENT_TYPE_WS_CONNECT",
 		11: "EVENT_TYPE_WS_MESSAGE",
 		12: "EVENT_TYPE_WS_CLOSE",
 	}
 	EventType_value = map[string]int32{
-		"EVENT_TYPE_UNSPECIFIED": 0,
-		"EVENT_TYPE_CONNECT":     1,
-		"EVENT_TYPE_REQUEST":     2,
-		"EVENT_TYPE_RESPONSE":    3,
-		"EVENT_TYPE_ERROR":       4,
-		"EVENT_TYPE_CLOSE":       5,
-		"EVENT_TYPE_WS_CONNECT":  10,
-		"EVENT_TYPE_WS_MESSAGE":  11,
-		"EVENT_TYPE_WS_CLOSE":    12,
+		"EVENT_TYPE_UNSPECIFIED":          0,
+		"EVENT_TYPE_CONNECT":              1,
+		"EVENT_TYPE_BEFORE_REQUEST_SEND":  2,
+		"EVENT_TYPE_AFTER_REQUEST_SEND":   3,
+		"EVENT_TYPE_BEFORE_RESPONSE_SEND": 4,
+		"EVENT_TYPE_AFTER_RESPONSE_SEND":  5,
+		"EVENT_TYPE_ERROR":                6,
+		"EVENT_TYPE_CLOSE":                7,
+		"EVENT_TYPE_WS_CONNECT":           10,
+		"EVENT_TYPE_WS_MESSAGE":           11,
+		"EVENT_TYPE_WS_CLOSE":             12,
 	}
 )
 
@@ -145,14 +151,16 @@ const file_burro_v1_types_proto_rawDesc = "" +
 	"\rTransportType\x12\x1e\n" +
 	"\x1aTRANSPORT_TYPE_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13TRANSPORT_TYPE_HTTP\x10\x01\x12\x15\n" +
-	"\x11TRANSPORT_TYPE_WS\x10\x02*\xeb\x01\n" +
+	"\x11TRANSPORT_TYPE_WS\x10\x02*\xca\x02\n" +
 	"\tEventType\x12\x1a\n" +
 	"\x16EVENT_TYPE_UNSPECIFIED\x10\x00\x12\x16\n" +
-	"\x12EVENT_TYPE_CONNECT\x10\x01\x12\x16\n" +
-	"\x12EVENT_TYPE_REQUEST\x10\x02\x12\x17\n" +
-	"\x13EVENT_TYPE_RESPONSE\x10\x03\x12\x14\n" +
-	"\x10EVENT_TYPE_ERROR\x10\x04\x12\x14\n" +
-	"\x10EVENT_TYPE_CLOSE\x10\x05\x12\x19\n" +
+	"\x12EVENT_TYPE_CONNECT\x10\x01\x12\"\n" +
+	"\x1eEVENT_TYPE_BEFORE_REQUEST_SEND\x10\x02\x12!\n" +
+	"\x1dEVENT_TYPE_AFTER_REQUEST_SEND\x10\x03\x12#\n" +
+	"\x1fEVENT_TYPE_BEFORE_RESPONSE_SEND\x10\x04\x12\"\n" +
+	"\x1eEVENT_TYPE_AFTER_RESPONSE_SEND\x10\x05\x12\x14\n" +
+	"\x10EVENT_TYPE_ERROR\x10\x06\x12\x14\n" +
+	"\x10EVENT_TYPE_CLOSE\x10\a\x12\x19\n" +
 	"\x15EVENT_TYPE_WS_CONNECT\x10\n" +
 	"\x12\x19\n" +
 	"\x15EVENT_TYPE_WS_MESSAGE\x10\v\x12\x17\n" +

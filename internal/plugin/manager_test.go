@@ -49,22 +49,44 @@ func (m *mockBurroPlugin) OnConnect(*model.RequestContext) error {
 	return nil
 }
 
-func (m *mockBurroPlugin) OnRequest(*model.RequestContext) error {
-	calls["request"] = append(calls["request"], m.name)
+func (m *mockBurroPlugin) OnBeforeRequestSend(*model.RequestContext) error {
+	calls["before_request_send"] = append(calls["before_request_send"], m.name)
 
-	m.called["request"] = true
-	if m.fail["request"] {
+	m.called["before_request_send"] = true
+	if m.fail["before_request_send"] {
 		return errors.New("request error")
 	}
 
 	return nil
 }
 
-func (m *mockBurroPlugin) OnResponse(*model.RequestContext) error {
-	calls["response"] = append(calls["response"], m.name)
+func (m *mockBurroPlugin) OnAfterRequestSend(*model.RequestContext) error {
+	calls["after_request_send"] = append(calls["before_request_send"], m.name)
 
-	m.called["response"] = true
-	if m.fail["response"] {
+	m.called["after_request_send"] = true
+	if m.fail["after_request_send"] {
+		return errors.New("request error")
+	}
+
+	return nil
+}
+
+func (m *mockBurroPlugin) OnBeforeResponseSend(*model.RequestContext) error {
+	calls["before_response_send"] = append(calls["before_response_send"], m.name)
+
+	m.called["before_response_send"] = true
+	if m.fail["before_response_send"] {
+		return errors.New("response error")
+	}
+
+	return nil
+}
+
+func (m *mockBurroPlugin) OnAfterResponseSend(*model.RequestContext) error {
+	calls["after_response_send"] = append(calls["after_response_send"], m.name)
+
+	m.called["after_response_send"] = true
+	if m.fail["after_response_send"] {
 		return errors.New("response error")
 	}
 
@@ -93,7 +115,7 @@ func (m *mockBurroPlugin) OnClose(*model.RequestContext) error {
 	return nil
 }
 
-// Mock only with OnConnect hook.
+// Mocks only with OnConnect hook.
 
 type mockBurroOnConnectPlugin struct {
 	name     string
@@ -131,7 +153,7 @@ func (m *mockBurroOnConnectPlugin) OnConnect(*model.RequestContext) error {
 	return nil
 }
 
-func TestManager_EmitRequest(t *testing.T) {
+func TestManager_EmitBeforeRequestSend(t *testing.T) {
 	calls = make(map[string][]string)
 
 	m := NewManager(broker.NewHub())
@@ -144,16 +166,43 @@ func TestManager_EmitRequest(t *testing.T) {
 
 	r := httptest.NewRequest("GET", "http://example.com", nil)
 
-	err := m.EmitRequest(model.NewCtx(model.NewSession(), &model.Timings{}, r))
+	err := m.EmitBeforeRequestSend(model.NewCtx(model.NewSession(), &model.Timings{}, r))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !p1.called["request"] {
+	if !p1.called["before_request_send"] {
 		t.Fatal("p1 should be called")
 	}
 
-	if !p2.called["request"] {
+	if !p2.called["before_request_send"] {
+		t.Fatal("p2 should be called")
+	}
+}
+
+func TestManager_EmitAfterRequestSend(t *testing.T) {
+	calls = make(map[string][]string)
+
+	m := NewManager(broker.NewHub())
+
+	p1 := newMock("p1")
+	p2 := newMock("p2")
+
+	m.Register(p1)
+	m.Register(p2)
+
+	r := httptest.NewRequest("GET", "http://example.com", nil)
+
+	err := m.EmitAfterRequestSend(model.NewCtx(model.NewSession(), &model.Timings{}, r))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !p1.called["after_request_send"] {
+		t.Fatal("p1 should be called")
+	}
+
+	if !p2.called["after_request_send"] {
 		t.Fatal("p2 should be called")
 	}
 }
@@ -175,14 +224,23 @@ func TestManager_DisabledPluginSkipped(t *testing.T) {
 	m.Register(p1)
 	m.Register(p2)
 
-	_ = m.EmitRequest(&model.RequestContext{})
+	_ = m.EmitBeforeRequestSend(&model.RequestContext{})
+	_ = m.EmitAfterRequestSend(&model.RequestContext{})
 
-	if !p1.called["request"] {
-		t.Fatal("enabled plugin should be called")
+	if !p1.called["before_request_send"] {
+		t.Fatal("enabled plugin should be called in before request")
 	}
 
-	if p2.called["request"] {
-		t.Fatal("disabled plugin should NOT be called")
+	if !p1.called["after_request_send"] {
+		t.Fatal("enabled plugin should be called in after request")
+	}
+
+	if p2.called["before_request_send"] {
+		t.Fatal("disabled plugin should NOT be called in before request")
+	}
+
+	if p2.called["after_request_send"] {
+		t.Fatal("disabled plugin should NOT be called in after request")
 	}
 }
 
@@ -200,7 +258,7 @@ func TestManager_PriorityOrder(t *testing.T) {
 	m.Register(p1)
 	m.Register(p2)
 
-	_ = m.EmitRequest(&model.RequestContext{})
+	_ = m.EmitBeforeRequestSend(&model.RequestContext{})
 
 	for _, c := range calls {
 		if len(c) != 2 {
@@ -221,22 +279,22 @@ func TestManager_DoNotStopOnError(t *testing.T) {
 	p1 := newMock("p1")
 	p2 := newMock("p2")
 
-	p1.fail["request"] = true
-	p2.fail["request"] = true
+	p1.fail["before_request_send"] = true
+	p2.fail["before_request_send"] = true
 
 	m.Register(p1)
 	m.Register(p2)
 
-	err := m.EmitRequest(&model.RequestContext{})
+	err := m.EmitBeforeRequestSend(&model.RequestContext{})
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
 
-	if !p1.called["request"] {
+	if !p1.called["before_request_send"] {
 		t.Fatal("p1 should be called")
 	}
 
-	if !p2.called["request"] {
+	if !p2.called["before_request_send"] {
 		t.Fatal("p2 should be called")
 	}
 }
@@ -251,13 +309,13 @@ func TestManager_HookFiltering(t *testing.T) {
 	m.Register(p)
 
 	_ = m.EmitConnect(&model.RequestContext{})
-	_ = m.EmitRequest(&model.RequestContext{})
+	_ = m.EmitBeforeRequestSend(&model.RequestContext{})
 
 	if !p.called["connect"] {
 		t.Fatal("connect should be called")
 	}
 
-	if p.called["request"] {
+	if p.called["before_request_send"] {
 		t.Fatal("request should NOT be called")
 	}
 }
@@ -274,14 +332,14 @@ func TestManager_EmitRequest_WithHub(t *testing.T) {
 
 	r := httptest.NewRequest("GET", "http://example.com", nil)
 
-	err := m.EmitRequest(model.NewCtx(model.NewSession(), &model.Timings{}, r))
+	err := m.EmitBeforeRequestSend(model.NewCtx(model.NewSession(), &model.Timings{}, r))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	select {
 	case event := <-sub.Ch:
-		if event.Type != broker.EventRequest {
+		if event.Type != broker.EventBeforeRequestSend {
 			t.Fatalf("unexpected event type: %v", event.Type)
 		}
 

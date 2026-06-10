@@ -333,8 +333,6 @@ If you just want to try Burro in an isolated environment.
 - Plugins define behavior, not the core
 - Core is minimal and stable, plugins evolve independently
 
----
-
 ### Plugin Development
 
 All plugins that use native hooks are located under `plugins` directory.
@@ -358,6 +356,28 @@ type Plugin interface {
 ```
 
 For better understanding, please, look at any plugin under `plugins/` directory in details.
+
+### Common Hooks
+
+**HTTP**:
+
+- `OnConnect` triggers on established connection
+- `OnBefore...` hook doesn't guarantee a snapshot (req/resp) has been created
+- `OnAfter...` hook contains a snapshot (req/resp)
+- That means, for instance, the policy plugin works on `OnBeforeRequestSend` to change the request, or forbid connection
+- And, for example, HAR export plugin waits for `OnAfterRequestSend` to collect a request's snapshot with a full data, after all plugins modify it and it was done
+- Furthemore, `OnBeforeResponseSend` hook may be useful in a case of HTTP stream since it provides response before a stream has started
+- `OnAfterResponseSend` contains a response with snapshot; in a case of HTTP stream it got only 1MB of the stream; regular HTTP(S) conenction contains a whole response
+- `OnError` triggers if somewhere error was appeared with sending a data to the hooks
+- `OnClose` - on close connection
+
+**WebSocket**:
+
+- `OnWSOpen` triggers on open WS connection
+- `OnWSMessage` hook catches all WS messages in real time
+- `OnWSClose` - on close connection
+
+---
 
 ## gRPC API
 

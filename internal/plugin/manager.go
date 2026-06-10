@@ -100,27 +100,27 @@ func (m *Manager) EmitConnect(ctx *model.RequestContext) error {
 	return errors.Join(errs...)
 }
 
-func (m *Manager) EmitRequest(ctx *model.RequestContext) error {
+func (m *Manager) EmitBeforeRequestSend(ctx *model.RequestContext) error {
 	var errs []error
 
 	for _, p := range m.plugins {
-		logger.Debug("EmitRequest: try plugin", "name", p.plugin.Name())
+		logger.Debug("EmitBeforeRequestSend: try plugin", "name", p.plugin.Name())
 		if !p.enabled {
-			logger.Debug("EmitRequest: plugin is disabled and ignores", "name", p.plugin.Name())
+			logger.Debug("EmitBeforeRequestSend: plugin is disabled and ignores", "name", p.plugin.Name())
 
 			continue
 		}
 
 		if h, ok := p.plugin.(RequestHook); ok {
-			if err := h.OnRequest(ctx); err != nil {
-				errs = append(errs, fmt.Errorf("Plugin Manager: error on Request hook: %w", err))
+			if err := h.OnBeforeRequestSend(ctx); err != nil {
+				errs = append(errs, fmt.Errorf("Plugin Manager: error on Before Request hook: %w", err))
 			}
 		}
 	}
 
-	event, err := broker.ToHTTPBrokerEvent(broker.EventRequest, ctx)
+	event, err := broker.ToHTTPBrokerEvent(broker.EventBeforeRequestSend, ctx)
 	if err != nil {
-		logger.Error("EmitRequest: cannot convert context to broker event", "err", err)
+		logger.Error("EmitBeforeRequestSend: cannot convert context to broker event", "err", err)
 		errs = append(errs, err)
 	} else {
 		m.hub.Publish(event)
@@ -129,27 +129,85 @@ func (m *Manager) EmitRequest(ctx *model.RequestContext) error {
 	return errors.Join(errs...)
 }
 
-func (m *Manager) EmitResponse(ctx *model.RequestContext) error {
+func (m *Manager) EmitAfterRequestSend(ctx *model.RequestContext) error {
 	var errs []error
 
 	for _, p := range m.plugins {
-		logger.Debug("EmitResponse: try plugin", "name", p.plugin.Name())
+		logger.Debug("EmitAfterRequestSend: try plugin", "name", p.plugin.Name())
 		if !p.enabled {
-			logger.Debug("EmitResponse: plugin is disabled and ignores", "name", p.plugin.Name())
+			logger.Debug("EmitAfterRequestSend: plugin is disabled and ignores", "name", p.plugin.Name())
+
+			continue
+		}
+
+		if h, ok := p.plugin.(RequestHook); ok {
+			if err := h.OnAfterRequestSend(ctx); err != nil {
+				errs = append(errs, fmt.Errorf("Plugin Manager: error on After Request hook: %w", err))
+			}
+		}
+	}
+
+	event, err := broker.ToHTTPBrokerEvent(broker.EventAfterRequestSend, ctx)
+	if err != nil {
+		logger.Error("EmitAfterRequestSend: cannot convert context to broker event", "err", err)
+		errs = append(errs, err)
+	} else {
+		m.hub.Publish(event)
+	}
+
+	return errors.Join(errs...)
+}
+
+func (m *Manager) EmitBeforeResponseSend(ctx *model.RequestContext) error {
+	var errs []error
+
+	for _, p := range m.plugins {
+		logger.Debug("EmitBeforeResponseSend: try plugin", "name", p.plugin.Name())
+		if !p.enabled {
+			logger.Debug("EmitBeforeResponseSend: plugin is disabled and ignores", "name", p.plugin.Name())
 
 			continue
 		}
 
 		if h, ok := p.plugin.(ResponseHook); ok {
-			if err := h.OnResponse(ctx); err != nil {
-				errs = append(errs, fmt.Errorf("Plugin Manager: error on Response hook: %w", err))
+			if err := h.OnBeforeResponseSend(ctx); err != nil {
+				errs = append(errs, fmt.Errorf("Plugin Manager: error on Before Response hook: %w", err))
 			}
 		}
 	}
 
-	event, err := broker.ToHTTPBrokerEvent(broker.EventResponse, ctx)
+	event, err := broker.ToHTTPBrokerEvent(broker.EventBeforeResponseSend, ctx)
 	if err != nil {
-		logger.Error("EmitResponse: cannot convert context to broker event", "err", err)
+		logger.Error("EmitBeforeResponseSend: cannot convert context to broker event", "err", err)
+		errs = append(errs, err)
+	} else {
+		m.hub.Publish(event)
+	}
+
+	return errors.Join(errs...)
+}
+
+func (m *Manager) EmitAfterResponseSend(ctx *model.RequestContext) error {
+	var errs []error
+
+	for _, p := range m.plugins {
+		logger.Debug("EmitAfterResponseSend: try plugin", "name", p.plugin.Name())
+		if !p.enabled {
+			logger.Debug("EmitAfterResponseSend: plugin is disabled and ignores", "name", p.plugin.Name())
+
+			continue
+		}
+
+		if h, ok := p.plugin.(ResponseHook); ok {
+			if err := h.OnAfterResponseSend(ctx); err != nil {
+				errs = append(errs, fmt.Errorf("Plugin Manager: error on After Response hook: %w", err))
+			}
+		}
+	}
+
+	event, err := broker.ToHTTPBrokerEvent(broker.EventAfterResponseSend, ctx)
+	if err != nil {
+		logger.Error("EmitAfterResponseSend: cannot convert context to broker event", "err", err)
 		errs = append(errs, err)
 	} else {
 		m.hub.Publish(event)

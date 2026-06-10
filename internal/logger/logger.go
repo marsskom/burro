@@ -10,7 +10,7 @@ import (
 
 const (
 	LevelTrace = slog.Level(-8)
-	LevelAudit = slog.Level(8)
+	LevelAudit = slog.Level(12)
 )
 
 var logger = slog.Default()
