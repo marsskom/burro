@@ -23,7 +23,7 @@ func TestPolicy_WhitelistAllows(t *testing.T) {
 		Timings: &model.Timings{},
 	}
 
-	err := p.OnRequest(ctx)
+	err := p.OnBeforeRequestSend(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +46,7 @@ func TestPolicy_BlacklistBlocks(t *testing.T) {
 		Timings: &model.Timings{},
 	}
 
-	err := p.OnRequest(ctx)
+	err := p.OnBeforeRequestSend(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestPolicy_WhitelistPriority(t *testing.T) {
 		Timings: &model.Timings{},
 	}
 
-	_ = p.OnRequest(ctx)
+	_ = p.OnBeforeRequestSend(ctx)
 
 	if ctx.IsFinished {
 		t.Fatal("whitelist should bypass blacklist")

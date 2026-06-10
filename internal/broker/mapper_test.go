@@ -40,7 +40,7 @@ func TestToHTTPBrokerEvent_MissingID(t *testing.T) {
 	ctx := baseCtx()
 	ctx.ID = ""
 
-	_, err := ToHTTPBrokerEvent(EventRequest, ctx)
+	_, err := ToHTTPBrokerEvent(EventBeforeRequestSend, ctx)
 	if err == nil {
 		t.Fatal("expected error for missing ID")
 	}
@@ -50,7 +50,7 @@ func TestToHTTPBrokerEvent_NoRequestSnapshot(t *testing.T) {
 	ctx := baseCtx()
 	ctx.RequestSnapshot = nil
 
-	ev, err := ToHTTPBrokerEvent(EventRequest, ctx)
+	ev, err := ToHTTPBrokerEvent(EventAfterRequestSend, ctx)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestToHTTPBrokerEvent_WithRequestSnapshot(t *testing.T) {
 		Cookies:     make([]*model.CookieSnapshot, 0),
 	}
 
-	ev, err := ToHTTPBrokerEvent(EventRequest, ctx)
+	ev, err := ToHTTPBrokerEvent(EventAfterRequestSend, ctx)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -116,7 +116,7 @@ func TestToHTTPBrokerEvent_MetadataConversion(t *testing.T) {
 		"k": "v",
 	}
 
-	ev, err := ToHTTPBrokerEvent(EventRequest, ctx)
+	ev, err := ToHTTPBrokerEvent(EventAfterRequestSend, ctx)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestToHTTPBrokerEvent_WithResponseSnapshot(t *testing.T) {
 		Headers:       map[string][]string{"r": {"1"}},
 	}
 
-	ev, err := ToHTTPBrokerEvent(EventRequest, ctx)
+	ev, err := ToHTTPBrokerEvent(EventAfterRequestSend, ctx)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

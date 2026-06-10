@@ -67,22 +67,34 @@ func brokerEventToProtoEvent(e broker.Event) *pt.Event {
 }
 
 var eventTypeToProto = map[broker.EventType]pt.EventType{
-	broker.EventConnect:   pt.EventType_EVENT_TYPE_CONNECT,
-	broker.EventRequest:   pt.EventType_EVENT_TYPE_REQUEST,
-	broker.EventResponse:  pt.EventType_EVENT_TYPE_RESPONSE,
-	broker.EventError:     pt.EventType_EVENT_TYPE_ERROR,
-	broker.EventClose:     pt.EventType_EVENT_TYPE_CLOSE,
+	broker.EventConnect: pt.EventType_EVENT_TYPE_CONNECT,
+
+	broker.EventBeforeRequestSend: pt.EventType_EVENT_TYPE_BEFORE_REQUEST_SEND,
+	broker.EventAfterRequestSend:  pt.EventType_EVENT_TYPE_AFTER_REQUEST_SEND,
+
+	broker.EventBeforeResponseSend: pt.EventType_EVENT_TYPE_BEFORE_RESPONSE_SEND,
+	broker.EventAfterResponseSend:  pt.EventType_EVENT_TYPE_AFTER_RESPONSE_SEND,
+
+	broker.EventError: pt.EventType_EVENT_TYPE_ERROR,
+	broker.EventClose: pt.EventType_EVENT_TYPE_CLOSE,
+
 	broker.EventWSConnect: pt.EventType_EVENT_TYPE_WS_CONNECT,
 	broker.EventWSMessage: pt.EventType_EVENT_TYPE_WS_MESSAGE,
 	broker.EventWSClose:   pt.EventType_EVENT_TYPE_WS_CLOSE,
 }
 
 var eventTypeFromProto = map[pt.EventType]broker.EventType{
-	pt.EventType_EVENT_TYPE_CONNECT:    broker.EventConnect,
-	pt.EventType_EVENT_TYPE_REQUEST:    broker.EventRequest,
-	pt.EventType_EVENT_TYPE_RESPONSE:   broker.EventResponse,
-	pt.EventType_EVENT_TYPE_ERROR:      broker.EventError,
-	pt.EventType_EVENT_TYPE_CLOSE:      broker.EventClose,
+	pt.EventType_EVENT_TYPE_CONNECT: broker.EventConnect,
+
+	pt.EventType_EVENT_TYPE_BEFORE_REQUEST_SEND: broker.EventBeforeRequestSend,
+	pt.EventType_EVENT_TYPE_AFTER_REQUEST_SEND:  broker.EventAfterRequestSend,
+
+	pt.EventType_EVENT_TYPE_BEFORE_RESPONSE_SEND: broker.EventBeforeResponseSend,
+	pt.EventType_EVENT_TYPE_AFTER_RESPONSE_SEND:  broker.EventAfterResponseSend,
+
+	pt.EventType_EVENT_TYPE_ERROR: broker.EventError,
+	pt.EventType_EVENT_TYPE_CLOSE: broker.EventClose,
+
 	pt.EventType_EVENT_TYPE_WS_CONNECT: broker.EventWSConnect,
 	pt.EventType_EVENT_TYPE_WS_MESSAGE: broker.EventWSMessage,
 	pt.EventType_EVENT_TYPE_WS_CLOSE:   broker.EventWSClose,

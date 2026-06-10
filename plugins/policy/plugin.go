@@ -129,7 +129,7 @@ func (p *PolicyPlugin) Init(rt pluginapi.Runtime, cfg any) error {
 	return nil
 }
 
-func (p *PolicyPlugin) OnRequest(ctx *model.RequestContext) error {
+func (p *PolicyPlugin) OnBeforeRequestSend(ctx *model.RequestContext) error {
 	if len(p.whitelist) > 0 && domain.Match(ctx.Request.Host, p.whitelist) {
 		p.rt.Log().Debug("request host was found in whitelist", "host", ctx.Request.Host)
 
@@ -145,7 +145,8 @@ func (p *PolicyPlugin) OnRequest(ctx *model.RequestContext) error {
 			return fmt.Errorf("cannot create response snapshot: %w", err)
 		}
 
-		ctx.Finish(resp, snapshot)
+		ctx.SetResponse(resp, snapshot)
+		ctx.Finish()
 
 		return nil
 	}
@@ -157,8 +158,13 @@ func (p *PolicyPlugin) OnRequest(ctx *model.RequestContext) error {
 			return fmt.Errorf("cannot create response snapshot: %w", err)
 		}
 
-		ctx.Finish(resp, snapshot)
+		ctx.SetResponse(resp, snapshot)
+		ctx.Finish()
 	}
 
+	return nil
+}
+
+func (p *PolicyPlugin) OnAfterRequestSend(ctx *model.RequestContext) error {
 	return nil
 }

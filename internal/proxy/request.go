@@ -2,13 +2,13 @@ package proxy
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"strings"
-	"syscall"
 
 	"gitlab.com/marsskom/burro/internal/model"
 )
@@ -80,18 +80,30 @@ func (px *Proxy) proceedTunnelRequest(
 		return fmt.Errorf("cannot transit new context to responding state: %w", err)
 	}
 
-	err = newCtx.Response.Write(writer)
-	if err != nil && !errors.Is(err, syscall.EPIPE) {
-		return fmt.Errorf("cannot write response: %w", err)
-	}
-
-	err = writer.Flush()
+	err = px.plugins.EmitBeforeResponseSend(newCtx)
 	if err != nil {
-		return fmt.Errorf("flush error: %w", err)
+		return fmt.Errorf("error on EmitBeforeResponseSend: %w", err)
 	}
 
-	if newCtx.Response != nil && newCtx.Response.Body != nil {
-		newCtx.Response.Body.Close()
+	body, err := writeTunnelResponse(clientConn, newCtx.Response)
+	if err != nil {
+		return fmt.Errorf("error on read response body: %w", err)
+	}
+	defer newCtx.Response.Body.Close()
+
+	newCtx.Response.Body = io.NopCloser(bytes.NewReader(body))
+
+	resSnapshot, err := model.MakeResponseSnapshot(newCtx.Response, px.traceTimings)
+	if err != nil {
+		return fmt.Errorf("error on response snapshot creation: %w", err)
+	}
+
+	newCtx.SetResponse(newCtx.Response, resSnapshot)
+	newCtx.Finish()
+
+	err = px.plugins.EmitAfterResponseSend(newCtx)
+	if err != nil {
+		return fmt.Errorf("error on EmitAfterResponseSend: %w", err)
 	}
 
 	err = newCtx.Transition(model.StateFinished)
@@ -102,81 +114,37 @@ func (px *Proxy) proceedTunnelRequest(
 	return nil
 }
 
-func (px *Proxy) proceedRawRequest(ctx *model.RequestContext, r *http.Request) error {
-	err := px.plugins.EmitRequest(ctx)
-	if err != nil {
-		return fmt.Errorf("proceedRawRequest: error on EmitRequest: %w", err)
-	}
-
-	reqSnapshot, err := model.MakeRequestSnapshot(ctx.Request)
-	if err != nil {
-		return fmt.Errorf("error on request snapshot creation: %w", err)
-	}
-
-	ctx.SetRequestSnapshot(reqSnapshot)
-	if ctx.IsFinished {
-		return nil
-	}
-
-	req, err := http.NewRequest(
-		r.Method,
-		r.URL.String(),
-		r.Body,
-	)
-	if err != nil {
-		return fmt.Errorf("proceedRawRequest: error on new request creation: %w", err)
-	}
-
-	req = req.WithContext(ctx.Context)
-	req.Header = r.Header.Clone()
-
-	res, err := px.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("proceedRawRequest: error on proceed request: %w", err)
-	}
-
-	resSnapshot, err := model.MakeResponseSnapshot(res, px.traceTimings)
-	if err != nil {
-		return fmt.Errorf("proceedRawRequest: error on response snapshot creation: %w", err)
-	}
-
-	ctx.Finish(res, resSnapshot)
-
-	err = px.plugins.EmitResponse(ctx)
-	if err != nil {
-		return fmt.Errorf("proccedRawRequest: error on EmitResponse: %w", err)
-	}
-
-	return nil
-}
-
 func (px *Proxy) proceedRequest(
 	ctx *model.RequestContext,
 	r *http.Request,
 ) error {
-	err := px.plugins.EmitRequest(ctx)
+	// Before the request send.
+	err := px.plugins.EmitBeforeRequestSend(ctx)
 	if err != nil {
-		return fmt.Errorf("proccedRequest: error on EmitRequest: %w", err)
+		return fmt.Errorf("error on emit before request send: %w", err)
 	}
 
-	reqSnapshot, err := model.MakeRequestSnapshot(ctx.Request)
-	if err != nil {
-		return fmt.Errorf("error on request snapshot creation: %w", err)
-	}
-
-	ctx.SetRequestSnapshot(reqSnapshot)
-
+	// Verifies context.
 	if ctx.IsFinished {
+		// Creates snapshot on the request finished the pipeline.
+		reqSnapshot, err := model.MakeRequestSnapshot(ctx.Request)
+		if err != nil {
+			return fmt.Errorf("error on request snapshot creation: %w", err)
+		}
+
+		ctx.SetRequestSnapshot(reqSnapshot)
+
 		return nil
 	}
 
+	// Prepares and sends the request.
 	req, err := http.NewRequest(
 		r.Method,
 		r.URL.String(),
 		r.Body,
 	)
 	if err != nil {
-		return fmt.Errorf("proccedRequest: error on new request creation: %w", err)
+		return fmt.Errorf("error on new request creation: %w", err)
 	}
 
 	req = req.WithContext(ctx.Context)
@@ -184,20 +152,25 @@ func (px *Proxy) proceedRequest(
 
 	res, err := px.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("proccedRequest: error on proceed request: %w", err)
+		return fmt.Errorf("error on proceed request: %w", err)
 	}
 
-	resSnapshot, err := model.MakeResponseSnapshot(res, px.traceTimings)
+	// After the request was sent.
+	reqSnapshot, err := model.MakeRequestSnapshot(ctx.Request)
 	if err != nil {
-		return fmt.Errorf("proccedRequest: error on response snapshot creation: %w", err)
+		return fmt.Errorf("error on request snapshot creation: %w", err)
 	}
 
-	ctx.Finish(res, resSnapshot)
+	ctx.SetRequestSnapshot(reqSnapshot)
 
-	err = px.plugins.EmitResponse(ctx)
+	// Emits with he request's snapshot.
+	err = px.plugins.EmitAfterRequestSend(ctx)
 	if err != nil {
-		return fmt.Errorf("proccedRequest: error on EmitResponse: %w", err)
+		return fmt.Errorf("error on emit after request was sent: %w", err)
 	}
+
+	// Sets response but not its snapshot.
+	ctx.SetResponse(res, nil)
 
 	return nil
 }

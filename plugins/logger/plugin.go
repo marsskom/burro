@@ -43,14 +43,26 @@ func (p *LoggerPlugin) OnConnect(ctx *model.RequestContext) error {
 	return nil
 }
 
-func (p *LoggerPlugin) OnRequest(ctx *model.RequestContext) error {
-	p.log(slog.LevelInfo, "request received", ctx)
+func (p *LoggerPlugin) OnBeforeRequestSend(ctx *model.RequestContext) error {
+	p.log(slog.LevelDebug, "before request send", ctx)
 
 	return nil
 }
 
-func (p *LoggerPlugin) OnResponse(ctx *model.RequestContext) error {
-	p.log(slog.LevelInfo, "response received", ctx)
+func (p *LoggerPlugin) OnAfterRequestSend(ctx *model.RequestContext) error {
+	p.log(slog.LevelInfo, "after request was sent", ctx)
+
+	return nil
+}
+
+func (p *LoggerPlugin) OnBeforeResponseSend(ctx *model.RequestContext) error {
+	p.log(slog.LevelDebug, "before response send", ctx)
+
+	return nil
+}
+
+func (p *LoggerPlugin) OnAfterResponseSend(ctx *model.RequestContext) error {
+	p.log(slog.LevelInfo, "after response was sent", ctx)
 
 	return nil
 }

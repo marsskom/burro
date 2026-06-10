@@ -79,7 +79,7 @@ func init() {
 		&cliFlags.GRPCDebug,
 		"grpc-d",
 		false,
-		"gRPC debug flag, activates reflection on gRPC server for grpcurl (for example) connections",
+		"gRPC debug flag, activates reflection on gRPC server (for example, for grpcurl debug)",
 	)
 
 	proxyCmd.Flags().StringVarP(

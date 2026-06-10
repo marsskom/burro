@@ -147,7 +147,11 @@ func (p *HARExportPlugin) OnConnect(ctx *model.RequestContext) error {
 	return nil
 }
 
-func (p *HARExportPlugin) OnRequest(ctx *model.RequestContext) error {
+func (p *HARExportPlugin) OnBeforeRequestSend(ctx *model.RequestContext) error {
+	return nil
+}
+
+func (p *HARExportPlugin) OnAfterRequestSend(ctx *model.RequestContext) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -222,7 +226,11 @@ func (p *HARExportPlugin) OnRequest(ctx *model.RequestContext) error {
 	return nil
 }
 
-func (p *HARExportPlugin) OnResponse(ctx *model.RequestContext) error {
+func (p *HARExportPlugin) OnBeforeResponseSend(ctx *model.RequestContext) error {
+	return nil
+}
+
+func (p *HARExportPlugin) OnAfterResponseSend(ctx *model.RequestContext) error {
 	if ctx.ResponseSnapshot == nil {
 		return nil
 	}
