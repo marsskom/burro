@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"log/slog"
+
 	"gitlab.com/marsskom/burro/internal/logger"
 )
 
@@ -8,6 +10,10 @@ type CoreLogger struct{}
 
 func NewCoreLogger() *CoreLogger {
 	return &CoreLogger{}
+}
+
+func (l *CoreLogger) Enabled(level slog.Level) bool {
+	return logger.Level() >= level
 }
 
 func (l *CoreLogger) Trace(msg string, args ...any) {

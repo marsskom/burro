@@ -94,6 +94,8 @@ func (px *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ctx.Transition(model.StateFailed)
 		px.plugins.EmitError(ctx, fmt.Errorf("ServeHTTP: error on EmitConnect: %w", err))
 
+		writeError(w, err)
+
 		return
 	}
 
@@ -110,5 +112,7 @@ func (px *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		ctx.Transition(model.StateFailed)
 		px.plugins.EmitError(ctx, fmt.Errorf("ServeHTTP: error on handle request: %w", err))
+
+		writeError(w, err)
 	}
 }

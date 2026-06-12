@@ -25,7 +25,7 @@ Burro (pronounced the same as word "burrow" /ˈbʌr.əʊ/) is a modular security
 
 ---
 
-> Please, consider use `-h` in CLI for help with Burro since the toll is still under developemnt and the documentation may be outdated.
+> Please, consider use `-h` in CLI for help with Burro since the tool is still under developemnt and the documentation may be outdated.
 
 ---
 
@@ -206,6 +206,7 @@ Plugins MAY:
 - Logger - just logs events
 - [Policy](./plugins/policy/README.md)
 - HAR Export - exports requests adn responses into HAR file
+- [Lua Plugin](./plugins/luaplugin/README.md)
 
 ---
 

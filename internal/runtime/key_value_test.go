@@ -39,8 +39,16 @@ func TestKeyValue_SetDuplicate(t *testing.T) {
 	_ = kv.Set("a", []byte("1"))
 
 	err := kv.Set("a", []byte("2"))
-	if err == nil {
-		t.Fatal("expected duplicate key error")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	val, err := kv.Get("a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(val) != "2" {
+		t.Fatalf("expected 2, got %s", val)
 	}
 }
 

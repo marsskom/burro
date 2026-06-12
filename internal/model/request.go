@@ -336,6 +336,14 @@ func MakeResponseSnapshot(res *http.Response, t *Timings) (*ResponseSnapshot, er
 	// Restores response body.
 	res.Body = io.NopCloser(bytes.NewReader(body))
 
+	var timeDNS, timeConnect, timeSSL, timeWait time.Duration
+	if t != nil {
+		timeDNS = t.DNSEnd.Sub(t.DNSStart)
+		timeConnect = t.ConnectEnd.Sub(t.ConnectStart)
+		timeSSL = t.TLSEnd.Sub(t.TLSStart)
+		timeWait = t.FirstByte.Sub(t.WroteRequest)
+	}
+
 	snapshot := &ResponseSnapshot{
 		Status:        res.Status,
 		StatusCode:    res.StatusCode,
@@ -344,10 +352,10 @@ func MakeResponseSnapshot(res *http.Response, t *Timings) (*ResponseSnapshot, er
 		ContentLength: len(body),
 		Body:          body,
 
-		TimeDNS:     t.DNSEnd.Sub(t.DNSStart),
-		TimeConnect: t.ConnectEnd.Sub(t.ConnectStart),
-		TimeSSL:     t.TLSEnd.Sub(t.TLSStart),
-		TimeWait:    t.FirstByte.Sub(t.WroteRequest),
+		TimeDNS:     timeDNS,
+		TimeConnect: timeConnect,
+		TimeSSL:     timeSSL,
+		TimeWait:    timeWait,
 	}
 
 	logger.Debug("response snapshot was created", "response", snapshot)

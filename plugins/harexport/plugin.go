@@ -58,6 +58,10 @@ func (p *HARExportPlugin) Name() string {
 	return "harexport"
 }
 
+func (p *HARExportPlugin) Shutdown() error {
+	return nil
+}
+
 func (p *HARExportPlugin) Init(rt pluginapi.Runtime, cfg any) error {
 	p.rt = rt
 

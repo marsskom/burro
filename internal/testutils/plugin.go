@@ -2,6 +2,7 @@ package testutils
 
 import (
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"sync"
 
@@ -66,6 +67,10 @@ func NewMemoryLogger() *MemoryLogger {
 			"audit": make([]string, 0),
 		},
 	}
+}
+
+func (l *MemoryLogger) Enabled(level slog.Level) bool {
+	return true
 }
 
 func (l *MemoryLogger) Trace(msg string, args ...any) {

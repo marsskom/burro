@@ -37,17 +37,31 @@ func (m *Manager) Register(p Plugin) {
 		priority: getPriority(p),
 	}
 
+	logger.Debug("enabled", "enabled", plugin.enabled)
 	logger.Debug("priority", "priority", plugin.priority)
 
-	m.plugins = append(m.plugins, plugin)
+	if !plugin.enabled {
+		return
+	}
 
-	m.sort()
+	m.plugins = append(m.plugins, plugin)
 }
 
-func (m *Manager) sort() {
+func (m *Manager) Sort() {
 	sort.Slice(m.plugins, func(i, j int) bool {
 		return m.plugins[i].priority < m.plugins[j].priority
 	})
+}
+
+func (m *Manager) Close() error {
+	var errs []error
+	for _, p := range m.plugins {
+		if err := p.plugin.Shutdown(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	return errors.Join(errs...)
 }
 
 func (m *Manager) EmitExportPluginsFlush(opts *export.FileNameVars) error {

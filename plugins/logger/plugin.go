@@ -37,6 +37,10 @@ func (p *LoggerPlugin) Init(rt pluginapi.Runtime, cfg any) error {
 	return nil
 }
 
+func (p *LoggerPlugin) Shutdown() error {
+	return nil
+}
+
 func (p *LoggerPlugin) OnConnect(ctx *model.RequestContext) error {
 	p.log(slog.LevelDebug, "trying to connect", ctx)
 

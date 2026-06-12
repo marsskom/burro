@@ -12,6 +12,8 @@ type mockPlugin struct {
 	nameCalled bool
 }
 
+func (m *mockPlugin) Shutdown() error { return nil }
+
 func (mp *mockPlugin) Init(rt pluginapi.Runtime, cfg any) error {
 	mp.initCalled = true
 

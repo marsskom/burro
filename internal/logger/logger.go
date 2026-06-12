@@ -14,21 +14,25 @@ const (
 )
 
 var logger = slog.Default()
+var loggerLevel = LevelAudit
 
 func Default() *slog.Logger {
 	return logger
 }
 
+func Level() slog.Level {
+	return loggerLevel
+}
+
 func SetDefault(verbosity int, level string) {
-	var slogLevel slog.Level
 	if verbosity > 0 {
-		slogLevel = verbosityToLevel(verbosity)
+		loggerLevel = verbosityToLevel(verbosity)
 	} else {
-		slogLevel = parseLevel(level)
+		loggerLevel = parseLevel(level)
 	}
 
 	opts := &slog.HandlerOptions{
-		Level: slogLevel,
+		Level: loggerLevel,
 		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
 			if a.Key == slog.LevelKey {
 				switch v := a.Value.Any().(type) {
@@ -96,7 +100,7 @@ func parseLevel(level string) slog.Level {
 }
 
 func Trace(msg string, args ...any) {
-	if !slog.Default().Enabled(context.Background(), LevelTrace) {
+	if loggerLevel != LevelTrace {
 		return
 	}
 

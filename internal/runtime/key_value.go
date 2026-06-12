@@ -25,7 +25,7 @@ func (kv *KeyValue) Get(key string) ([]byte, error) {
 
 	val, ok := kv.storage[key]
 	if !ok {
-		return []byte{}, fmt.Errorf("kv: key '%s' not found not found", key)
+		return []byte{}, fmt.Errorf("kv: key '%s' not found", key)
 	}
 
 	return val, nil
@@ -34,10 +34,6 @@ func (kv *KeyValue) Get(key string) ([]byte, error) {
 func (kv *KeyValue) Set(key string, value []byte) error {
 	kv.mu.Lock()
 	defer kv.mu.Unlock()
-
-	if _, ok := kv.storage[key]; ok {
-		return fmt.Errorf("kv: key '%s' already exists", key)
-	}
 
 	kv.storage[key] = value
 
