@@ -150,3 +150,24 @@ func TestEventBus_ConcurrentEmit(t *testing.T) {
 		t.Fatal("timeout")
 	}
 }
+
+func TestEventBus_Off(t *testing.T) {
+	bus := NewEventBus()
+
+	called := make(chan struct{}, 1)
+
+	off := bus.On("test", func(e pluginapi.Event) {
+		called <- struct{}{}
+	})
+
+	off() // unsubscribe
+
+	_ = bus.Emit(pluginapi.Event{Name: "test"})
+
+	select {
+	case <-called:
+		t.Fatal("handler should not be called after Off")
+	case <-time.After(100 * time.Millisecond):
+		// OK
+	}
+}

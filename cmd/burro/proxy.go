@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	"gitlab.com/marsskom/burro/internal/broker"
 	"gitlab.com/marsskom/burro/internal/cert"
+	"gitlab.com/marsskom/burro/internal/cli"
 	"gitlab.com/marsskom/burro/internal/config"
 	"gitlab.com/marsskom/burro/internal/database"
 	"gitlab.com/marsskom/burro/internal/export"
@@ -136,6 +138,19 @@ func init() {
 }
 
 func run() error {
+	cliIO := cli.IO{
+		In:  bufio.NewReader(os.Stdin),
+		Out: os.Stdout,
+	}
+
+	tty, err := os.OpenFile("/dev/tty", os.O_WRONLY, 0)
+	if err == nil {
+		defer tty.Close()
+
+		cliIO.Out = tty
+	}
+	cli.Print(cliIO, "Loading...")
+
 	paths, cfg, err := initConfig(cliFlags)
 	if err != nil {
 		return err
@@ -165,8 +180,14 @@ func run() error {
 
 	// Plugins.
 	pm := plugin.NewManager(brokerHub)
+	defer func() {
+		err := pm.Close()
+		if err != nil {
+			logger.Error(err.Error())
+		}
+	}()
 
-	err = plugin.LoadPlugins(paths, cfg, pm)
+	err = plugin.LoadPlugins(cliIO, paths, cfg, pm)
 	if err != nil {
 		logger.Error(err.Error())
 
@@ -205,6 +226,8 @@ func run() error {
 	}
 
 	logger.Info("proxy is listening on", "host", cfg.Proxy.Listen)
+
+	cli.Print(cliIO, "Ready")
 
 	if err := runServer(cfg, brokerHub, server); err != nil {
 		logger.Error(err.Error())

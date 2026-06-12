@@ -1,5 +1,6 @@
 core:
-  log_level: info
+  log_level: error
+
   plugins:
     dir: plugins
     config: config.yml
@@ -27,3 +28,12 @@ plugins:
     enabled: false
     file: "%session%-%datetime%.har"
     override: true
+
+  luaplugin:
+    enabled: false
+    priority: 90
+    dir: scripts
+    scripts:
+      metric:
+        enabled: true
+        priority: 100

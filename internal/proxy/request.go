@@ -118,22 +118,30 @@ func (px *Proxy) proceedRequest(
 	ctx *model.RequestContext,
 	r *http.Request,
 ) error {
+	// Creates snapshot before triggers `before_request` creating snapshot for plugins.
+	reqSnapshot, err := model.MakeRequestSnapshot(ctx.Request)
+	if err != nil {
+		return fmt.Errorf("error on request snapshot creation: %w", err)
+	}
+
+	ctx.SetRequestSnapshot(reqSnapshot)
+
 	// Before the request send.
-	err := px.plugins.EmitBeforeRequestSend(ctx)
+	err = px.plugins.EmitBeforeRequestSend(ctx)
 	if err != nil {
 		return fmt.Errorf("error on emit before request send: %w", err)
 	}
 
+	// Creates snapshot on after `before_request` trigger to update snapshot.
+	reqSnapshot, err = model.MakeRequestSnapshot(ctx.Request)
+	if err != nil {
+		return fmt.Errorf("error on request snapshot creation: %w", err)
+	}
+
+	ctx.SetRequestSnapshot(reqSnapshot)
+
 	// Verifies context.
 	if ctx.IsFinished {
-		// Creates snapshot on the request finished the pipeline.
-		reqSnapshot, err := model.MakeRequestSnapshot(ctx.Request)
-		if err != nil {
-			return fmt.Errorf("error on request snapshot creation: %w", err)
-		}
-
-		ctx.SetRequestSnapshot(reqSnapshot)
-
 		return nil
 	}
 
@@ -155,8 +163,8 @@ func (px *Proxy) proceedRequest(
 		return fmt.Errorf("error on proceed request: %w", err)
 	}
 
-	// After the request was sent.
-	reqSnapshot, err := model.MakeRequestSnapshot(ctx.Request)
+	// Makes final req snapshot after the request was sent.
+	reqSnapshot, err = model.MakeRequestSnapshot(ctx.Request)
 	if err != nil {
 		return fmt.Errorf("error on request snapshot creation: %w", err)
 	}

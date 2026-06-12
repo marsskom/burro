@@ -8,6 +8,7 @@ import (
 type Plugin interface {
 	Name() string
 	Init(rt pluginapi.Runtime, cfg any) error
+	Shutdown() error
 }
 
 type ConnectHook interface {

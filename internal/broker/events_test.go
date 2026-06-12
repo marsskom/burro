@@ -160,7 +160,7 @@ func TestHub_SlowSubscriber_DoesNotBlockPublish(t *testing.T) {
 	defer h.Unsubscribe(slow)
 
 	// Fills buffer to simulate slow consumer.
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		select {
 		case slow.Ch <- Event{}:
 		default:

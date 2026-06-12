@@ -52,6 +52,10 @@ func (p *PolicyPlugin) Name() string {
 	return "policy"
 }
 
+func (p *PolicyPlugin) Shutdown() error {
+	return nil
+}
+
 func (p *PolicyPlugin) Init(rt pluginapi.Runtime, cfg any) error {
 	p.rt = rt
 
@@ -99,32 +103,64 @@ func (p *PolicyPlugin) Init(rt pluginapi.Runtime, cfg any) error {
 		p.blacklist = blacklist
 	}
 
-	if config.ActionDir != "" {
-		fileList, err := p.rt.Data().List(config.ActionDir, []string{".yml", ".yaml"})
-		if err != nil {
-			return fmt.Errorf("policy: error on reading action dir '%s': %w", config.ActionDir, err)
-		}
-
-		actionRules, err := actions.LoadActionRules(p.rt.Data(), fileList)
-		if err != nil {
-			return fmt.Errorf("policy: load actions error: %w", err)
-		}
-
-		var errs []error
-		for _, ar := range actionRules {
-			err = ar.Validate()
-			if err != nil {
-				errs = append(errs, err)
-			}
-		}
-
-		err = errors.Join(errs...)
-		if err != nil {
-			return fmt.Errorf("policy: error in action rule: %w", err)
-		}
-
-		p.actionRules = actionRules
+	if config.ActionDir == "" {
+		return nil
 	}
+
+	fileList, err := p.rt.Data().List(config.ActionDir, []string{".yml", ".yaml"})
+	if err != nil {
+		return fmt.Errorf("policy: error on reading action dir '%s': %w", config.ActionDir, err)
+	}
+
+	// Emits plugin starts loading.
+	eventData := map[string]int{
+		"current": 1,
+		"total":   len(fileList) + 1, // plugin itself makes it plus 1
+	}
+	p.rt.Events().Emit(pluginapi.Event{
+		Name: plugin.EventLoadPluginProgress,
+		From: p.Name(),
+		Data: eventData,
+	})
+
+	actionRules, err := actions.LoadActionRules(p.rt.Data(), fileList)
+	if err != nil {
+		return fmt.Errorf("policy: load actions error: %w", err)
+	}
+
+	// Emits with action rules count.
+	eventData = map[string]int{
+		"current": 1,
+		"total":   len(actionRules) + 1, // plugin itself makes it plus 1
+	}
+	p.rt.Events().Emit(pluginapi.Event{
+		Name: plugin.EventLoadPluginProgress,
+		From: p.Name(),
+		Data: eventData,
+	})
+
+	var errs []error
+	for _, ar := range actionRules {
+		err = ar.Validate()
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		eventData["current"] = eventData["current"] + 1
+
+		p.rt.Events().Emit(pluginapi.Event{
+			Name: plugin.EventLoadPluginProgress,
+			From: p.Name(),
+			Data: eventData,
+		})
+	}
+
+	err = errors.Join(errs...)
+	if err != nil {
+		return fmt.Errorf("policy: error in action rule: %w", err)
+	}
+
+	p.actionRules = actionRules
 
 	return nil
 }

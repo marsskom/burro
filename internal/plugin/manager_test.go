@@ -30,6 +30,8 @@ func newMock(name string) *mockBurroPlugin {
 	}
 }
 
+func (m *mockBurroPlugin) Shutdown() error { return nil }
+
 func (m *mockBurroPlugin) Init(rt pluginapi.Runtime, cfg any) error { return nil }
 
 func (m *mockBurroPlugin) Name() string { return m.name }
@@ -134,6 +136,8 @@ func newMockOnConnect(name string) *mockBurroOnConnectPlugin {
 	}
 }
 
+func (m *mockBurroOnConnectPlugin) Shutdown() error { return nil }
+
 func (m *mockBurroOnConnectPlugin) Init(rt pluginapi.Runtime, cfg any) error { return nil }
 
 func (m *mockBurroOnConnectPlugin) Name() string { return m.name }
@@ -164,6 +168,8 @@ func TestManager_EmitBeforeRequestSend(t *testing.T) {
 	m.Register(p1)
 	m.Register(p2)
 
+	m.Sort()
+
 	r := httptest.NewRequest("GET", "http://example.com", nil)
 
 	err := m.EmitBeforeRequestSend(model.NewCtx(model.NewSession(), &model.Timings{}, r))
@@ -190,6 +196,8 @@ func TestManager_EmitAfterRequestSend(t *testing.T) {
 
 	m.Register(p1)
 	m.Register(p2)
+
+	m.Sort()
 
 	r := httptest.NewRequest("GET", "http://example.com", nil)
 
@@ -223,6 +231,8 @@ func TestManager_DisabledPluginSkipped(t *testing.T) {
 
 	m.Register(p1)
 	m.Register(p2)
+
+	m.Sort()
 
 	_ = m.EmitBeforeRequestSend(&model.RequestContext{})
 	_ = m.EmitAfterRequestSend(&model.RequestContext{})
@@ -258,6 +268,8 @@ func TestManager_PriorityOrder(t *testing.T) {
 	m.Register(p1)
 	m.Register(p2)
 
+	m.Sort()
+
 	_ = m.EmitBeforeRequestSend(&model.RequestContext{})
 
 	for _, c := range calls {
@@ -284,6 +296,8 @@ func TestManager_DoNotStopOnError(t *testing.T) {
 
 	m.Register(p1)
 	m.Register(p2)
+
+	m.Sort()
 
 	err := m.EmitBeforeRequestSend(&model.RequestContext{})
 	if err == nil {

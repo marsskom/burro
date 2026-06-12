@@ -57,8 +57,6 @@ func (px *Proxy) handleRawHTTP(w http.ResponseWriter, ctx *model.RequestContext)
 
 	err = px.proceedRequest(ctx, ctx.Request)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-
 		return fmt.Errorf("HTTP: error on handle request: %w", err)
 	}
 
