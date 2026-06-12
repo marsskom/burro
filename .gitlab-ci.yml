@@ -61,6 +61,8 @@ release:
 
   script:
     - |
+      set -e
+
       if [ -f "releases/${CI_COMMIT_TAG}.md" ]; then
         NOTES_FILE="releases/${CI_COMMIT_TAG}.md"
       else
@@ -77,8 +79,16 @@ release:
 
       glab release create "$CI_COMMIT_TAG" \
         --name "Burro $CI_COMMIT_TAG" \
-        --notes-file "$NOTES_FILE" \
-        --assets-link "{\"name\":\"Linux AMD64\",\"url\":\"$CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_TAG/raw/dist/burro-${CI_COMMIT_TAG}-linux-amd64.tar.gz?job=build\"}" \
-        --assets-link "{\"name\":\"Linux ARM64\",\"url\":\"$CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_TAG/raw/dist/burro-${CI_COMMIT_TAG}-linux-arm64.tar.gz?job=build\"}" \
-        --assets-link "{\"name\":\"macOS ARM64\",\"url\":\"$CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_TAG/raw/dist/burro-${CI_COMMIT_TAG}-darwin-arm64.tar.gz?job=build\"}" \
-        --assets-link "{\"name\":\"Checksums\",\"url\":\"$CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_TAG/raw/dist/checksums.txt?job=build\"}"
+        --notes-file "$NOTES_FILE"
+
+      glab release upload "$CI_COMMIT_TAG" \
+        "dist/burro-${CI_COMMIT_TAG}-linux-amd64.tar.gz#Linux AMD64"
+
+      glab release upload "$CI_COMMIT_TAG" \
+        "dist/burro-${CI_COMMIT_TAG}-linux-arm64.tar.gz#Linux ARM64"
+
+      glab release upload "$CI_COMMIT_TAG" \
+        "dist/burro-${CI_COMMIT_TAG}-darwin-arm64.tar.gz#macOS ARM64"
+
+      glab release upload "$CI_COMMIT_TAG" \
+        "dist/checksums.txt#Checksums"
