@@ -1,6 +1,8 @@
 version: v2
 inputs:
   - git_repo: https://gitlab.com/marsskom/burro-proto
+    ref: v0.1.0
+
 plugins:
   - local: protoc-gen-go
     out: internal/proto
