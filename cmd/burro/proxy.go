@@ -121,6 +121,12 @@ func init() {
 
 	proxyCmd.MarkFlagsRequiredTogether("tls-cert", "tls-key")
 
+	proxyCmd.Flags().BoolVar(
+		&cliFlags.CADisabled,
+		"no-ca",
+		false,
+		"disable tls flag",
+	)
 	proxyCmd.Flags().StringVar(
 		&cliFlags.CACert,
 		"ca-cert",
@@ -164,13 +170,13 @@ func run() error {
 	caCert, caKey, err := cert.LoadCA(caCertPath, caKeyPath)
 
 	if err != nil {
-		if !cfg.Proxy.ZeroConfigurationMode {
+		if !cliFlags.CADisabled && !cfg.Proxy.ZeroConfigurationMode {
 			logger.Error(err.Error())
 
 			return err
 		}
 
-		logger.Warn("CA certificates weren't loaded (ignore for zero configuration mode)", "cert", caCertPath, "key", caKeyPath, "err", err)
+		logger.Warn("CA certificates weren't loaded", "cert", caCertPath, "key", caKeyPath, "err", err)
 	} else {
 		logger.Info("CA certificates were loaded", "cert", caCertPath, "key", caKeyPath)
 	}

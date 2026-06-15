@@ -29,7 +29,7 @@ func (r *ProgressRenderer) Render(g GlobalProgress) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	cli.Clear(r.cliIO)
+	// cli.Clear(r.cliIO)
 	cli.ProgressBar(r.cliIO, g.Current, g.Total, 35)
 
 	fmt.Fprintf(r.cliIO.Out, " loading plugins (%d/%d)\n",

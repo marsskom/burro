@@ -22,7 +22,7 @@ func LoadPlugins(cliIO cli.IO, paths *config.Paths, cfg *config.Config, pm *Mana
 		cliIO: cliIO,
 	}
 	progress := GlobalProgress{
-		Total:   0,
+		Total:   len(cfg.Plugins),
 		Plugins: make(map[string]Progress),
 	}
 
@@ -35,6 +35,8 @@ func LoadPlugins(cliIO cli.IO, paths *config.Paths, cfg *config.Config, pm *Mana
 		factory, ok := registry[name]
 		if !ok {
 			logger.Warn("plugin is not in registry", "plugin", name)
+
+			progress.Total--
 
 			continue
 		}
@@ -51,10 +53,13 @@ func LoadPlugins(cliIO cli.IO, paths *config.Paths, cfg *config.Config, pm *Mana
 		}
 
 		if !isPluginEnabled(pluginCfg) {
+			logger.Info("plugin is disabled", "name", p.Name())
+
+			progress.Total--
+
 			continue
 		}
 
-		progress.Total = progress.Total + 1
 		progress.Current = progress.Current + 1
 		progress.Plugins[name] = Progress{
 			Name:    name,

@@ -393,7 +393,7 @@ grpc:
 
 ### Purpose
 
-The gRPC layer is intended as a lightweight control and observation channel over Burro’s runtime. It allows external clients to:
+The gRPC layer is intended as a lightweight control and observation channel over Burro's runtime. It allows external clients to:
 
 - verify that Burro is running and responsive
 - subscribe to live HTTP traffic events
@@ -542,6 +542,34 @@ grpcurl \
   localhost:7777 \
   burro.Burro/Subscribe
 ```
+
+---
+
+## MacOS
+
+On macOS, apps downloaded from the internet are marked with a quarantine attribute by Gatekeeper. This can block execution or show security warnings.
+
+Check if app is quarantined
+
+```shell
+xattr /path/to/burro
+```
+
+If you see `com.apple.quarantine`, it's blocked.
+
+### Remove Burro from quarantine
+
+```shell
+xattr -d com.apple.quarantine /path/to/burro
+```
+
+Example:
+
+```shell
+xattr -d com.apple.quarantine ~/Downloads/burro
+```
+
+For the author it always helps to test downloaded release.
 
 ---
 

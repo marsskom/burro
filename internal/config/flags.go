@@ -11,6 +11,7 @@ type ProxyFlags struct {
 	TLSCert      string
 	TLSKey       string
 	TLSInsecure  bool
+	CADisabled   bool
 	CACert       string
 	CAKey        string
 }
