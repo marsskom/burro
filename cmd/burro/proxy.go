@@ -21,7 +21,6 @@ import (
 	"gitlab.com/marsskom/burro/internal/database"
 	"gitlab.com/marsskom/burro/internal/export"
 	"gitlab.com/marsskom/burro/internal/grpc"
-	"gitlab.com/marsskom/burro/internal/logger"
 	coreLogger "gitlab.com/marsskom/burro/internal/logger"
 	"gitlab.com/marsskom/burro/internal/model"
 	"gitlab.com/marsskom/burro/internal/persistence"
@@ -171,14 +170,14 @@ func run() error {
 
 	if err != nil {
 		if !cliFlags.CADisabled && !cfg.Proxy.ZeroConfigurationMode {
-			logger.Error(err.Error())
+			coreLogger.Error(err.Error())
 
 			return err
 		}
 
-		logger.Warn("CA certificates weren't loaded", "cert", caCertPath, "key", caKeyPath, "err", err)
+		coreLogger.Warn("CA certificates weren't loaded", "cert", caCertPath, "key", caKeyPath, "err", err)
 	} else {
-		logger.Info("CA certificates were loaded", "cert", caCertPath, "key", caKeyPath)
+		coreLogger.Info("CA certificates were loaded", "cert", caCertPath, "key", caKeyPath)
 	}
 
 	// Broker.
@@ -189,20 +188,20 @@ func run() error {
 	defer func() {
 		err := pm.Close()
 		if err != nil {
-			logger.Error(err.Error())
+			coreLogger.Error(err.Error())
 		}
 	}()
 
 	err = plugin.LoadPlugins(cliIO, paths, cfg, pm)
 	if err != nil {
-		logger.Error(err.Error())
+		coreLogger.Error(err.Error())
 
 		return err
 	}
 
 	workspace, err := initWorkspace(paths, cfg, cliFlags.Workspace)
 	if err != nil {
-		logger.Error(err.Error())
+		coreLogger.Error(err.Error())
 
 		return err
 	}
@@ -216,7 +215,7 @@ func run() error {
 
 	if cfg.Proxy.Listen == "" {
 		err = fmt.Errorf("proxy listen address cannot be empty")
-		logger.Error(err.Error())
+		coreLogger.Error(err.Error())
 
 		return err
 	}
@@ -231,12 +230,12 @@ func run() error {
 		IdleTimeout:       60 * time.Second,
 	}
 
-	logger.Info("proxy is listening on", "host", cfg.Proxy.Listen)
+	coreLogger.Info("proxy is listening on", "host", cfg.Proxy.Listen)
 
 	cli.Print(cliIO, "Ready")
 
 	if err := runServer(cfg, brokerHub, server); err != nil {
-		logger.Error(err.Error())
+		coreLogger.Error(err.Error())
 
 		return err
 	}
@@ -246,7 +245,7 @@ func run() error {
 			Session: session.ID,
 		})
 		if err != nil {
-			logger.Error("plugin has failed", "err", err)
+			coreLogger.Error("plugin has failed", "err", err)
 		}
 	}()
 
@@ -260,7 +259,7 @@ func run() error {
 
 	err = saveWorkspace(paths, workspace)
 	if err != nil {
-		logger.Error(err.Error())
+		coreLogger.Error(err.Error())
 
 		return err
 	}
@@ -272,7 +271,7 @@ func initConfig(flags config.ProxyFlags) (*config.Paths, *config.Config, error) 
 	paths := config.NewPaths(config.ResolveWorkdir(flags.WorkDir))
 
 	if flags.ZeroCfg {
-		logger.Warn("proxy runs in zero configuration mode")
+		coreLogger.Warn("proxy runs in zero configuration mode")
 
 		cfg, err := config.NewZeroCfg(flags)
 		if err != nil {
@@ -342,7 +341,7 @@ func runServer(cfg *config.Config, hub *broker.Hub, s *http.Server) error {
 	go func() {
 		var err error
 		if cfg.TLS.Enabled {
-			logger.Info("proxy TLS is enabled with certificates", "cert", cfg.TLS.Cert, "key", cfg.TLS.Key)
+			coreLogger.Info("proxy TLS is enabled with certificates", "cert", cfg.TLS.Cert, "key", cfg.TLS.Key)
 
 			err = s.ListenAndServeTLS(cfg.TLS.Cert, cfg.TLS.Key)
 		} else {
@@ -360,10 +359,10 @@ func runServer(cfg *config.Config, hub *broker.Hub, s *http.Server) error {
 
 	select {
 	case sig := <-interrupt:
-		logger.Info("received signal, shutting down", "signal", sig)
+		coreLogger.Info("received signal, shutting down", "signal", sig)
 
 	case err := <-serverErr:
-		logger.Error("server crashed", "error", err)
+		coreLogger.Error("server crashed", "error", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -371,9 +370,9 @@ func runServer(cfg *config.Config, hub *broker.Hub, s *http.Server) error {
 
 	err := s.Shutdown(ctx)
 	if err != nil {
-		logger.Error("HTTP server shutdown failed", "error", err)
+		coreLogger.Error("HTTP server shutdown failed", "error", err)
 	} else {
-		logger.Info("HTTP server exited")
+		coreLogger.Info("HTTP server exited")
 	}
 
 	gRPCWrapper.Stop(ctx)
@@ -393,7 +392,7 @@ func saveWorkspace(paths *config.Paths, w *model.Workspace) error {
 	}
 	defer dbConn.Close()
 
-	logger.Debug("workspace is going to be saved under a name", "name", w.GetName())
+	coreLogger.Debug("workspace is going to be saved under a name", "name", w.GetName())
 
 	err = dbcommand.UpsertWorkspaceCommand(context.Background(), dbConn.DB, w)
 	if err != nil {
