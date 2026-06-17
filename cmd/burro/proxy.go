@@ -55,14 +55,6 @@ var proxyCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(proxyCmd)
 
-	proxyCmd.Flags().BoolVarP(
-		&cliFlags.ZeroCfg,
-		"z",
-		"z",
-		false,
-		"run proxy without configuration, only logger plugin works, TLS is not mandatory",
-	)
-
 	proxyCmd.Flags().StringVarP(
 		&cliFlags.GRPCListen,
 		"grpc",
@@ -270,8 +262,8 @@ func run() error {
 func initConfig(flags config.ProxyFlags) (*config.Paths, *config.Config, error) {
 	paths := config.NewPaths(config.ResolveWorkdir(flags.WorkDir))
 
-	if flags.ZeroCfg {
-		coreLogger.Warn("proxy runs in zero configuration mode")
+	if flags.WorkDir == "" {
+		coreLogger.Info("proxy runs in zero configuration mode")
 
 		cfg, err := config.NewZeroCfg(flags)
 		if err != nil {

@@ -1,7 +1,6 @@
 package config
 
 type ProxyFlags struct {
-	ZeroCfg      bool
 	Listen       string
 	GRPCListen   string
 	GRPCDisabled bool

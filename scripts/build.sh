@@ -20,31 +20,24 @@ for t in "${TARGETS[@]}"; do
 
   NAME="burro-${VERSION}-${GOOS}-${GOARCH}"
 
-  echo "[1/5] Building $NAME"
+  echo "[1/4] Building $NAME"
 
   mkdir -p package
-
-  go generate ./tools/plugin-gen
 
   CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH \
     go build -ldflags="-s -w -X main.version=${VERSION}" \
     -o package/burro ./cmd/burro
 
-  echo "[2/5] Copying configs"
-
-  cp -R runtime package/
-  find package/runtime -type f \( -name ".gitignore" -o -name ".gitkeep" \) -delete
-
-  echo "[3/5] Creating archive"
+  echo "[2/4] Creating archive"
 
   tar -czf "dist/${NAME}.tar.gz" -C package .
 
-  echo "[4/5] Cleanup package"
+  echo "[3/4] Cleanup package"
   rm -rf package
 
 done
 
-echo "[5/5] Generating checksums"
+echo "[4/4] Generating checksums"
 sha256sum dist/*.tar.gz > dist/checksums.txt
 
 echo "Done → dist/"

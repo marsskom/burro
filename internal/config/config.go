@@ -30,7 +30,7 @@ func ResolveWorkdir(explicit string) string {
 		return env
 	}
 
-	return "./runtime"
+	return ""
 }
 
 func (p *Paths) GetConfigPath(explicit string) (string, error) {
@@ -47,6 +47,7 @@ func (p *Paths) GetConfigPath(explicit string) (string, error) {
 }
 
 type Config struct {
+	Version int            `yaml:"version"`
 	Core    CoreConfig     `yaml:"core"`
 	Proxy   ProxyConfig    `yaml:"proxy"`
 	GRPC    GRPCConfig     `yaml:"grpc"`
@@ -102,7 +103,9 @@ func LoadWithFlags(configPath string, flags ProxyFlags) (*Config, error) {
 }
 
 func mergeProxyFlags(cfg *Config, flags ProxyFlags) *Config {
-	cfg.Proxy.ZeroConfigurationMode = flags.ZeroCfg
+	if flags.WorkDir == "" {
+		cfg.Proxy.ZeroConfigurationMode = true
+	}
 
 	if flags.TLSCert != "" {
 		cfg.TLS.Enabled = true
