@@ -15,7 +15,7 @@ import (
 )
 
 var serveCmd = &cobra.Command{
-	Use:   "serve [address] [directory]",
+	Use:   "serve <address> <directory>",
 	Short: "Run simple static file server on directory",
 	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {

@@ -118,11 +118,11 @@ func TestResolveWorkdir(t *testing.T) {
 		}
 	})
 
-	t.Run("fallback to ./runtime", func(t *testing.T) {
+	t.Run("fallback to empty", func(t *testing.T) {
 		got := ResolveWorkdir("")
 
-		if got != "./runtime" {
-			t.Fatalf("expected ./runtime, got %s", got)
+		if got != "" {
+			t.Fatalf("expected empty, got %s", got)
 		}
 	})
 }

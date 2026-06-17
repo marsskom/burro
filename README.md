@@ -31,22 +31,133 @@ Burro (pronounced the same as word "burrow" /ˈbʌr.əʊ/) is a modular security
 
 ## Quick Command Reference
 
-| Command                      | Description                                    | Example                                |
-| ---------------------------- | ---------------------------------------------- | -------------------------------------- |
-| `burro proxy`                | Start HTTP proxy using runtime config          | `burro proxy`                          |
-| `burro proxy -z <addr>`      | Run proxy in zero-config mode                  | `burro proxy -z localhost:8080`        |
-| `burro proxy -w <name>`      | Run proxy with workspace persistence           | `burro proxy -w test-session`          |
-| `burro serve <addr> <dir>`   | Start static file server                       | `burro serve localhost:8888 ./runtime` |
-| `burro cert init`            | Generate CA certificate for TLS interception   | `burro cert init`                      |
-| `burro cert generate [host]` | Generate host certificate (default: localhost) | `burro cert generate localhost`        |
-| `burro proxy -v`             | Increase log verbosity (info/debug)            | `burro proxy -v`                       |
-| `burro proxy -vv`            | Enable debug verbosity                         | `burro proxy -vv`                      |
-| `burro proxy -vvv`           | Maximum verbosity (with trace)                 | `burro proxy -vvv`                     |
-| `make build`                 | Build Burro binary                             | `make build`                           |
-| `make browser`               | Launch Chromium configured for testing         | `make browser`                         |
-| `make ca-install`            | Install CA into system trust store (macOS)     | `make ca-install`                      |
-| `make ca-remove`             | Remove CA from system trust store              | `make ca-remove`                       |
-| `make ca-find`               | Check if CA is installed in system             | `make ca-find`                         |
+| Command                      | Description                                                                                                 | Example                                |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `burro proxy <addr>`         | Run proxy in zero-config mode                                                                               | `burro proxy localhost:8080`           |
+| `burro init <path> [name]`   | Inits proxy workdir structure with default configs in the path with directory %name% (`runtime` by default) | `burro init . workdir`                 |
+| `burro proxy -d <workdir>`   | Start HTTP proxy using runtime config                                                                       | `burro proxy -d runtime`               |
+| `burro proxy -w <name>`      | Run proxy with workspace persistence                                                                        | `burro proxy -w test-session`          |
+| `burro serve <addr> <dir>`   | Start static file server                                                                                    | `burro serve localhost:8888 ./runtime` |
+| `burro cert init`            | Generate CA certificate for TLS interception                                                                | `burro cert init`                      |
+| `burro cert generate [host]` | Generate host certificate (default: localhost)                                                              | `burro cert generate localhost`        |
+| `burro proxy -v`             | Increase log verbosity (info/debug)                                                                         | `burro proxy -v`                       |
+| `burro proxy -vv`            | Enable debug verbosity                                                                                      | `burro proxy -vv`                      |
+| `burro proxy -vvv`           | Maximum verbosity (with trace)                                                                              | `burro proxy -vvv`                     |
+| `make build`                 | Build Burro binary                                                                                          | `make build`                           |
+| `make browser`               | Launch Chromium configured for testing                                                                      | `make browser`                         |
+| `make ca-install`            | Install CA into system trust store (macOS)                                                                  | `make ca-install`                      |
+| `make ca-remove`             | Remove CA from system trust store                                                                           | `make ca-remove`                       |
+| `make ca-find`               | Check if CA is installed in system                                                                          | `make ca-find`                         |
+
+---
+
+## Installation
+
+With go:
+
+```sh
+go install gitlab.com/marsskom/burro/cmd/burro@latest
+```
+
+---
+
+## Zero configuration mode
+
+By default Burro runs in zero configuration mode without working directory and configuration file.
+
+> In zero configuration mode Burro only runs logger to log the requests.
+
+For this mode you must specify listen address since there are no defualt values: `burro proxy localhost:8080`.
+
+Other flags is optional. For example, gRPC will be disabled if its listen address is not explicity set (`-g`).
+
+For using CA certificates for proxy to connect with HTTPS sites you may specify both with `--ca-cert` and `--ca-key`.
+
+Same for TLS certificates. If you have them for the host where you run Burro, you may specify both with `--tls-cert` and `--tls-key` to use HTTPS connection to the proxy: `https://localhost:8443/`.
+
+---
+
+## Initialization
+
+`init` command initializes a new Burro workspace in a given directory.
+
+```shell
+burro init <path> [name]
+```
+
+The command creates a fully structured Burro workspace inside the specified directory.
+
+It prepares:
+
+- application configuration
+- plugin directories
+- internal runtime folders
+- default plugin configs and data files
+
+This command is idempotent and safe to rerun.
+
+### Arguments
+
+| Argument | Required | Description                                    |
+| -------- | -------- | ---------------------------------------------- |
+| `path`   | yes      | Base directory where workspace will be created |
+| `name`   | no       | Workspace name (default: `runtime`)            |
+
+The final workspace path will be: `<path>/<name>`
+
+### Options
+
+| Flag        | Description                                             |
+| ----------- | ------------------------------------------------------- |
+| `--dry-run` | Show what would be created without modifying filesystem |
+| `--force`   | Overwrite existing configuration files                  |
+
+### Generated structure
+
+After initialization, the following structure is created:
+
+```text
+<workspace>/
+├── config.yml
+├── artifacts/
+├── certs/
+├── db/
+└── plugins/
+    ├── policy/
+    │   ├── config.yml
+    │   ├── data/
+    │   │   ├── whitelist.txt
+    │   │   └── blacklist.txt
+    │   └── actions/
+    └── luaplugin/
+        └── scripts/
+```
+
+### Default configuration
+
+A default config.yml is generated with minimal runtime setup:
+
+- core logging configuration
+- plugin directory settings
+- proxy listener configuration
+- gRPC service settings
+- default plugin registry
+
+### Examples
+
+Initialize workspace in current directory: `burro init .`
+
+Initialize workspace with custom name: `burro init /opt/burro production`
+
+Preview structure without writing files: `burro init . --dry-run`
+
+Recreate configuration files: `burro init . --force`
+
+### Notes
+
+- The command is safe to rerun.
+- Existing files are not overwritten unless `--force` is specified.
+- Structure is not created in `--dry-run` mode.
 
 ---
 
@@ -106,22 +217,6 @@ plugins:
 
 ---
 
-## Zero configuration mode
-
-You may run burro as standalone binary without runtime directory in zero configuratio mode (`-z` flag).
-
-> In zero configuration mode Burro only runs logger to log the requests.
-
-For this mode you must specify listen address since there are no defualt values: `burro proxy -z localhost:8080`.
-
-Other flags is optional. For example, gRPC will be disabled if its listen address is not explicity set (`-g`).
-
-For using CA certificates for proxy to connect with HTTPS sites you may specify both with `--ca-cert` and `--ca-key`.
-
-Same for TLS certificates. If you have them for the host where you run Burro, you may specify both with `--tls-cert` and `--tls-key` to use HTTPS connection to the proxy: `https://localhost:8443/`.
-
----
-
 ## Plugin configuration model
 
 Each plugin can have its own configuration.
@@ -175,6 +270,8 @@ plugins:
 ---
 
 ## Plugin system
+
+> More about plugins you may read [here](./docs/plugins.md)
 
 Burro uses a plugin-based architecture.
 

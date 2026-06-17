@@ -37,23 +37,16 @@ ca-find:
 	@security find-certificate -c "$(CA_NAME)" $(KEYCHAIN) || true
 
 
-.PHONY: gen
-gen:
-	go generate ./tools/plugin-gen
-
 .PHONY: build
 build:
-	$(MAKE) gen
 	go build -o $(PROXY) ./cmd/burro
 
 .PHONY: proxy
 proxy:
-	$(MAKE) gen
-	go run ./cmd/burro -d runtime proxy $(ARGS)
+	go run ./cmd/burro proxy $(ARGS)
 
 .PHONY: serve
 serve:
-	$(MAKE) gen
 	go run ./cmd/burro serve $(ARGS)
 
 .PHONY: protoge
