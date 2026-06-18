@@ -90,7 +90,10 @@ release:
         "dist/burro-${CI_COMMIT_TAG}-linux-arm64.tar.gz#Linux ARM64"
 
       glab release upload "$CI_COMMIT_TAG" \
-        "dist/burro-${CI_COMMIT_TAG}-darwin-arm64.tar.gz#macOS ARM64"
+        "dist/burro-${CI_COMMIT_TAG}-darwin-arm64.tar.gz#MacOS ARM64"
+
+      glab release upload "$CI_COMMIT_TAG" \
+        "dist/burro-${CI_COMMIT_TAG}-darwin-amd64.tar.gz#MacOS AMD64"
 
       glab release upload "$CI_COMMIT_TAG" \
         "dist/checksums.txt#Checksums"

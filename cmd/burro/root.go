@@ -7,8 +7,9 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "burro",
-	Short: "Burro proxy and security inspection tool",
+	Use:     "burro",
+	Short:   "Burro proxy and security inspection tool",
+	Version: "v0.2.1",
 }
 
 var verbosity int
@@ -20,6 +21,8 @@ func init() {
 		"v",
 		"increase verbosity (-v, -vv, -vvv)",
 	)
+
+	rootCmd.SetVersionTemplate("{{.Version}}\n")
 }
 
 func Execute() {
