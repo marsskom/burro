@@ -59,6 +59,8 @@ With go:
 go install gitlab.com/marsskom/burro/cmd/burro@latest
 ```
 
+Or [Homebrew](https://gitlab.com/marsskom/burro-homebrew).
+
 ---
 
 ## Zero configuration mode
